@@ -1,14 +1,185 @@
 
 import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task } from './types';
 
+// Hjelpefunksjon for å generere tilfeldig fødselsdato i et gitt år
+const generateRandomBirthDate = (year: number): string => {
+  // Generer tilfeldig måned (1-12)
+  const month = Math.floor(Math.random() * 12) + 1;
+  // Generer tilfeldig dag (1-28 for å unngå problemer med måneder med færre dager)
+  const day = Math.floor(Math.random() * 28) + 1;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+// Hjelpefunksjon for å generere fødselsdato basert på alder
+const generateBirthDateFromAge = (age: number): string => {
+  const currentYear = new Date().getFullYear();
+  const birthYear = currentYear - age;
+  return generateRandomBirthDate(birthYear);
+};
+
+// Geografisk fordeling basert på Lillesand Misjonskirke
+const LOCATIONS = {
+  lillesand: {
+    postalCode: '4790',
+    city: 'Lillesand',
+    streets: ['Storgata', 'Strandgata', 'Skoleveien', 'Brentemoen'],
+    probability: 0.70
+  },
+  hovag: {
+    postalCode: '4770',
+    city: 'Høvåg',
+    streets: ['Høvågveien', 'Vestre Vallesverd', 'Indre Årsnes'],
+    probability: 0.10
+  },
+  birkeland: {
+    postalCode: '4760',
+    city: 'Birkeland',
+    streets: ['Strøget', 'Tveideveien', 'Nordåsveien'],
+    probability: 0.10
+  },
+  grimstad: {
+    postalCode: '4876',
+    city: 'Grimstad',
+    streets: ['Storgaten', 'Vestregate', 'Grooseveien'],
+    probability: 0.10
+  }
+};
+
+// Hjelpefunksjon for å velge tilfeldig lokasjon basert på sannsynlighet
+const getRandomLocation = () => {
+  const rand = Math.random();
+  if (rand < LOCATIONS.lillesand.probability) return LOCATIONS.lillesand;
+  if (rand < LOCATIONS.lillesand.probability + LOCATIONS.hovag.probability) return LOCATIONS.hovag;
+  if (rand < LOCATIONS.lillesand.probability + LOCATIONS.hovag.probability + LOCATIONS.birkeland.probability) return LOCATIONS.birkeland;
+  return LOCATIONS.grimstad;
+};
+
+// Hjelpefunksjon for å generere fullstendig adresse
+const generateAddress = () => {
+  const location = getRandomLocation();
+  const street = location.streets[Math.floor(Math.random() * location.streets.length)];
+  const streetNumber = Math.floor(Math.random() * 50) + 1; // 1-50
+  return {
+    streetAddress: `${street} ${streetNumber}`,
+    postalCode: location.postalCode,
+    city: location.city
+  };
+};
+
+// Hjelpefunksjon for å generere norsk mobilnummer (8 siffer)
+const generatePhoneNumber = (): string => {
+  const prefix = ['9', '4', '8'][Math.floor(Math.random() * 3)]; // 9, 4 eller 8
+  const digits = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10)).join('');
+  return `${prefix}${digits}`;
+};
+
+// Hjelpefunksjon for å generere email fra navn
+const generateEmail = (name: string): string => {
+  const parts = name.toLowerCase().split(' ');
+  if (parts.length >= 2) {
+    return `${parts[0]}.${parts[parts.length - 1]}@lmk.no`;
+  }
+  return `${parts[0]}@lmk.no`;
+};
+
+// Hjelpefunksjon for å generere adresse med spesifikk lokasjon
+const generateAddressForLocation = (location: typeof LOCATIONS.lillesand) => {
+  const street = location.streets[Math.floor(Math.random() * location.streets.length)];
+  const streetNumber = Math.floor(Math.random() * 50) + 1;
+  return {
+    streetAddress: `${street} ${streetNumber}`,
+    postalCode: location.postalCode,
+    city: location.city
+  };
+};
+
+// Liste med norske fornavn og etternavn for realistiske navn
+const FIRST_NAMES = [
+  'Anders', 'Lise', 'Tom', 'Per', 'Morten', 'Lars', 'Kari', 'Erik', 'Ingrid', 'Ole',
+  'Anne', 'Bjørn', 'Marit', 'Svein', 'Hanne', 'Jan', 'Liv', 'Geir', 'Tone', 'Arne',
+  'Mari', 'Thomas', 'Silje', 'Magnus', 'Camilla', 'Henrik', 'Nina', 'Martin', 'Heidi', 'Andreas',
+  'Kristin', 'Daniel', 'Marte', 'Jon', 'Vilde', 'Espen', 'Siri', 'Stian', 'Emma', 'Lukas'
+];
+
+const LAST_NAMES = [
+  'Hansen', 'Johansen', 'Olsen', 'Larsen', 'Andersen', 'Pedersen', 'Nilsen', 'Kristiansen',
+  'Jensen', 'Karlsen', 'Berg', 'Haugen', 'Dahl', 'Bakke', 'Solberg', 'Eriksen', 'Haugland',
+  'Moe', 'Strand', 'Lunde', 'Holm', 'Aas', 'Sørensen', 'Myklebust', 'Vik', 'Sandvik', 'Lie'
+];
+
+// Funksjon for å generere 45 personer med riktig geografisk fordeling
+const generate45Persons = (): Person[] => {
+  const persons: Person[] = [];
+  let personCounter = 1;
+  const usedNames = new Set<string>();
+  
+  // Geografisk fordeling: 70% Lillesand (32), 10% hver av de andre (4-5 hver)
+  const distribution = [
+    ...Array(32).fill(LOCATIONS.lillesand),  // 32 personer i Lillesand
+    ...Array(5).fill(LOCATIONS.hovag),       // 5 personer i Høvåg
+    ...Array(4).fill(LOCATIONS.birkeland),   // 4 personer i Birkeland
+    ...Array(4).fill(LOCATIONS.grimstad)    // 4 personer i Grimstad
+  ];
+  
+  // Blande distribusjonen for tilfeldig rekkefølge
+  for (let i = distribution.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [distribution[i], distribution[j]] = [distribution[j], distribution[i]];
+  }
+  
+  // Generer personer
+  distribution.forEach((location, index) => {
+    const personId = `p${personCounter++}`;
+    
+    // Velg unikt navn (unngå duplikater)
+    let name: string;
+    let attempts = 0;
+    do {
+      const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+      const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+      name = `${firstName} ${lastName}`;
+      attempts++;
+    } while (usedNames.has(name) && attempts < 100);
+    usedNames.add(name);
+    
+    // Generer fødselsdato (blanding av voksne og barn)
+    let birthYear: number;
+    if (index < 10) {
+      // 10 barn (2008-2025)
+      birthYear = Math.floor(Math.random() * 18) + 2008; // 2008-2025
+    } else if (index < 25) {
+      // 15 voksne (1970-1995)
+      birthYear = Math.floor(Math.random() * 26) + 1970;
+    } else {
+      // 20 voksne (1980-2000)
+      birthYear = Math.floor(Math.random() * 21) + 1980;
+    }
+    
+    const address = generateAddressForLocation(location);
+    
+    persons.push({
+      id: personId,
+      name,
+      email: generateEmail(name),
+      phone: generatePhoneNumber(),
+      birth_date: generateRandomBirthDate(birthYear),
+      streetAddress: address.streetAddress,
+      postalCode: address.postalCode,
+      city: address.city,
+      is_admin: index === 0, // Første person er admin
+      is_active: true,
+      core_role: index === 0 ? CoreRole.ADMIN : (index < 5 ? CoreRole.TEAM_LEADER : CoreRole.MEMBER)
+    });
+  });
+  
+  return persons;
+};
+
+// Generer 45 personer
+const generatedPersons = generate45Persons();
+
 export const INITIAL_DATA: AppState = {
-  persons: [
-    { id: 'p1', name: 'Anders Admin', email: 'anders@lmk.no', phone: '900 11 001', is_admin: true, is_active: true, core_role: CoreRole.ADMIN },
-    { id: 'p2', name: 'Lise Lovsang', email: 'lise@lmk.no', phone: '900 22 002', is_admin: false, is_active: true, core_role: CoreRole.TEAM_LEADER },
-    { id: 'p3', name: 'Tom Tekniker', email: 'tom@lmk.no', phone: '900 33 003', is_admin: false, is_active: true, core_role: CoreRole.MEMBER },
-    { id: 'p5', name: 'Per Pastor', email: 'per@lmk.no', phone: '900 55 005', is_admin: true, is_active: true, core_role: CoreRole.PASTOR },
-    { id: 'p7', name: 'Morten Møtevert', email: 'morten@lmk.no', phone: '900 77 007', is_admin: false, is_active: true, core_role: CoreRole.MEMBER },
-  ],
+  persons: generatedPersons,
   groups: [
     { id: 'g1', name: 'Lovsang', category: GroupCategory.SERVICE, description: 'Ansvarlig for musikk og tilbedelse under gudstjenester.' },
     { id: 'g2', name: 'Teknikk', category: GroupCategory.SERVICE, description: 'Lyd, lys og bilde.' },
@@ -16,12 +187,74 @@ export const INITIAL_DATA: AppState = {
     { id: 'g4', name: 'Ledelse & Forkynnelse', category: GroupCategory.SERVICE, description: 'Talerer og møteledere.' },
     { id: 'g5', name: 'Barn & Unge', category: GroupCategory.SERVICE, description: 'Barnekirke og trosopplæring.' },
   ],
-  groupMembers: [
-    { id: 'gm1', group_id: 'g1', person_id: 'p2', role: GroupRole.LEADER, service_role_id: 'sr5' },
-    { id: 'gm2', group_id: 'g2', person_id: 'p3', role: GroupRole.MEMBER, service_role_id: 'sr6' },
-    { id: 'gm4', group_id: 'g4', person_id: 'p5', role: GroupRole.LEADER, service_role_id: 'sr1' },
-    { id: 'gm6', group_id: 'g3', person_id: 'p7', role: GroupRole.MEMBER, service_role_id: 'sr9' },
-  ],
+  // Generer gruppemedlemmer: hver gruppe skal ha 5-6 medlemmer
+  // Noen personer kan være i flere grupper
+  groupMembers: (() => {
+    const members: GroupMember[] = [];
+    let memberCounter = 1;
+    
+    // g1: Lovsang (6 medlemmer) - p1-p6
+    const lovsangMembers = [1, 2, 3, 4, 5, 6];
+    lovsangMembers.forEach((personIndex, idx) => {
+      members.push({
+        id: `gm${memberCounter++}`,
+        group_id: 'g1',
+        person_id: `p${personIndex}`,
+        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
+        service_role_id: idx === 0 ? 'sr5' : undefined
+      });
+    });
+    
+    // g2: Teknikk (5 medlemmer) - p3, p7-p10 (p3 er også i Lovsang)
+    const teknikkMembers = [3, 7, 8, 9, 10];
+    teknikkMembers.forEach((personIndex, idx) => {
+      members.push({
+        id: `gm${memberCounter++}`,
+        group_id: 'g2',
+        person_id: `p${personIndex}`,
+        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
+        service_role_id: idx === 0 ? 'sr6' : (idx === 1 ? 'sr7' : undefined)
+      });
+    });
+    
+    // g3: Vertskap (6 medlemmer) - p11-p16
+    const vertskapMembers = [11, 12, 13, 14, 15, 16];
+    vertskapMembers.forEach((personIndex, idx) => {
+      members.push({
+        id: `gm${memberCounter++}`,
+        group_id: 'g3',
+        person_id: `p${personIndex}`,
+        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
+        service_role_id: idx === 0 ? 'sr9' : (idx === 1 ? 'sr10' : undefined)
+      });
+    });
+    
+    // g4: Ledelse & Forkynnelse (6 medlemmer) - p1, p17-p21 (p1 er også i Lovsang og er admin)
+    const ledelseMembers = [1, 17, 18, 19, 20, 21];
+    ledelseMembers.forEach((personIndex, idx) => {
+      members.push({
+        id: `gm${memberCounter++}`,
+        group_id: 'g4',
+        person_id: `p${personIndex}`,
+        role: idx === 0 ? GroupRole.LEADER : (idx === 1 ? GroupRole.DEPUTY_LEADER : GroupRole.MEMBER),
+        service_role_id: idx === 0 ? 'sr1' : (idx === 1 ? 'sr2' : undefined)
+      });
+    });
+    
+    // g5: Barn & Unge (5 medlemmer) - p22-p26
+    const barnekirkeMembers = [22, 23, 24, 25, 26];
+    barnekirkeMembers.forEach((personIndex, idx) => {
+      members.push({
+        id: `gm${memberCounter++}`,
+        group_id: 'g5',
+        person_id: `p${personIndex}`,
+        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
+        service_role_id: idx === 0 ? 'sr4' : undefined
+      });
+    });
+    
+    return members;
+  })(),
   serviceRoles: [
     {
       id: 'sr1',
@@ -342,19 +575,47 @@ function populateFamilyData(baseData: AppState): AppState {
       if (existingPersonIndex === -1) {
         // Opprett ny person
         const personId = `p${personCounter++}`;
+        // Generer realistisk fødselsdato for voksne (1970-1995)
+        const birthYear = Math.floor(Math.random() * 26) + 1970; // 1970-1995
+        const address = generateAddress();
         person = {
           id: personId,
           name: voksen.navn,
-          email: `${voksen.navn.toLowerCase().replace(/\s+/g, '.')}@lmk.no`,
-          phone: `900 ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 900 + 100)}`,
+          email: generateEmail(voksen.navn),
+          phone: generatePhoneNumber(),
+          birth_date: generateRandomBirthDate(birthYear),
+          streetAddress: address.streetAddress,
+          postalCode: address.postalCode,
+          city: address.city,
           is_admin: false,
           is_active: true,
           core_role: CoreRole.MEMBER
         };
         newPersons.push(person);
       } else {
-        // Bruk eksisterende person
+        // Bruk eksisterende person, men legg til manglende felter
         person = newPersons[existingPersonIndex];
+        const updates: Partial<Person> = {};
+        if (!person.birth_date) {
+          const birthYear = Math.floor(Math.random() * 26) + 1970;
+          updates.birth_date = generateRandomBirthDate(birthYear);
+        }
+        if (!person.streetAddress || !person.postalCode || !person.city) {
+          const address = generateAddress();
+          updates.streetAddress = address.streetAddress;
+          updates.postalCode = address.postalCode;
+          updates.city = address.city;
+        }
+        if (!person.phone) {
+          updates.phone = generatePhoneNumber();
+        }
+        if (!person.email) {
+          updates.email = generateEmail(person.name);
+        }
+        if (Object.keys(updates).length > 0) {
+          person = { ...person, ...updates };
+          newPersons[existingPersonIndex] = person;
+        }
       }
       
       adultPersons.push(person);
@@ -412,21 +673,47 @@ function populateFamilyData(baseData: AppState): AppState {
       if (existingPersonIndex === -1) {
         // Opprett ny person
         const personId = `p${personCounter++}`;
-        const currentYear = new Date().getFullYear();
-        const birthYear = currentYear - barn.alder;
+        // Generer fødselsdato basert på alder
+        const birthDate = generateBirthDateFromAge(barn.alder);
+        const address = generateAddress();
         
         person = {
           id: personId,
           name: barn.navn,
-          birth_year: birthYear,
+          birth_date: birthDate,
+          email: generateEmail(barn.navn),
+          phone: generatePhoneNumber(),
+          streetAddress: address.streetAddress,
+          postalCode: address.postalCode,
+          city: address.city,
           is_admin: false,
           is_active: true,
           core_role: CoreRole.MEMBER
         };
         newPersons.push(person);
       } else {
-        // Bruk eksisterende person
+        // Bruk eksisterende person, men oppdater manglende felter
         person = newPersons[existingPersonIndex];
+        const updates: Partial<Person> = {};
+        if (!person.birth_date) {
+          updates.birth_date = generateBirthDateFromAge(barn.alder);
+        }
+        if (!person.streetAddress || !person.postalCode || !person.city) {
+          const address = generateAddress();
+          updates.streetAddress = address.streetAddress;
+          updates.postalCode = address.postalCode;
+          updates.city = address.city;
+        }
+        if (!person.phone) {
+          updates.phone = generatePhoneNumber();
+        }
+        if (!person.email) {
+          updates.email = generateEmail(person.name);
+        }
+        if (Object.keys(updates).length > 0) {
+          person = { ...person, ...updates };
+          newPersons[existingPersonIndex] = person;
+        }
       }
 
       // Sjekk om familiemedlem allerede eksisterer

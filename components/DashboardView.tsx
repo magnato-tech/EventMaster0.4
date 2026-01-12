@@ -246,8 +246,6 @@ const PopulationPyramid: React.FC<{ db: AppState }> = ({ db }) => {
     if (person.birth_date) {
       const birthDate = new Date(person.birth_date);
       age = Math.floor((now.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-    } else if (person.birth_year) {
-      age = currentYear - person.birth_year;
     }
 
     if (age !== null && age >= 0) {
@@ -526,9 +524,6 @@ const DashboardView: React.FC<Props> = ({ db }) => {
         const birthDate = new Date(person.birth_date);
         const age = Math.floor((now.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
         return age >= 18;
-      } else if (person.birth_year) {
-        const age = currentYear - person.birth_year;
-        return age >= 18;
       }
       return false;
     });
@@ -563,9 +558,6 @@ const DashboardView: React.FC<Props> = ({ db }) => {
       if (person.birth_date) {
         const birthDate = new Date(person.birth_date);
         const age = Math.floor((now.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        return age < 18;
-      } else if (person.birth_year) {
-        const age = currentYear - person.birth_year;
         return age < 18;
       }
       return false;

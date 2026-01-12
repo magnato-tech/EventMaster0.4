@@ -466,7 +466,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       email, 
       phone, 
       birth_date: birthDate,
-      birth_year: birthDate ? new Date(birthDate).getFullYear() : undefined,
       streetAddress,
       postalCode,
       city,
@@ -495,7 +494,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       email, 
       phone, 
       birth_date: birthDate,
-      birth_year: birthDate ? new Date(birthDate).getFullYear() : undefined,
       streetAddress,
       postalCode,
       city,
@@ -607,7 +605,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
             name: memberPersonSearch.trim(),
             email: newPersonEmail.trim() || undefined,
             phone: newPersonPhone.trim() || undefined,
-            birth_year: newPersonBirthYear ? parseInt(newPersonBirthYear) : undefined,
             birth_date: newPersonBirthDate || undefined,
             is_admin: false,
             is_active: true,
@@ -626,7 +623,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
             name: memberPersonSearch.trim(),
             email: newPersonEmail.trim() || undefined,
             phone: newPersonPhone.trim() || undefined,
-            birth_year: newPersonBirthYear ? parseInt(newPersonBirthYear) : undefined,
             birth_date: newPersonBirthDate || undefined,
             is_admin: false,
             is_active: true,
@@ -655,7 +651,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
           name: memberPersonSearch.trim(),
           email: newPersonEmail.trim() || undefined,
           phone: newPersonPhone.trim() || undefined,
-          birth_year: newPersonBirthYear ? parseInt(newPersonBirthYear) : undefined,
           birth_date: newPersonBirthDate || undefined,
           is_admin: false,
           is_active: true,
@@ -884,7 +879,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   };
 
   // Hjelpefunksjon for å beregne alder
-  const calculateAge = (birthYear?: number, birthDate?: string): string => {
+  const calculateAge = (birthDate?: string): string => {
     if (birthDate) {
       const birth = new Date(birthDate);
       const today = new Date();
@@ -893,10 +888,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
         age--;
       }
-      return `${age} år`;
-    }
-    if (birthYear) {
-      const age = new Date().getFullYear() - birthYear;
       return `${age} år`;
     }
     return '';
@@ -948,9 +939,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
         age--;
       }
       return age;
-    }
-    if (person.birth_year) {
-      return new Date().getFullYear() - person.birth_year;
     }
     return null;
   };
@@ -1294,17 +1282,13 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                         <p className="text-sm font-semibold text-slate-700">{selectedPerson.phone || '–'}</p>
                       </div>
                     </div>
-                    {(selectedPerson.birth_date || selectedPerson.birth_year) && (
+                    {selectedPerson.birth_date && (
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-slate-50 rounded-lg text-slate-400 border border-slate-100"><Calendar size={16} /></div>
                         <div>
                           <p className="text-[10px] text-slate-400 font-medium leading-none mb-1">Fødselsdato</p>
                           <p className="text-sm font-semibold text-slate-700">
-                            {selectedPerson.birth_date 
-                              ? new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(selectedPerson.birth_date))
-                              : selectedPerson.birth_year 
-                                ? `Født ${selectedPerson.birth_year}`
-                                : '–'}
+                            {new Intl.DateTimeFormat('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(selectedPerson.birth_date))}
                           </p>
                         </div>
                       </div>
@@ -2714,7 +2698,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {children.map(({ member, person }) => {
-                        const age = calculateAge(person.birth_year, person.birth_date);
+                        const age = calculateAge(person.birth_date);
                         const hasOtherFamilies = (db.familyMembers || []).filter(
                           fm => fm.person_id === person.id && fm.family_id !== viewingFamilyId
                         ).length > 0;

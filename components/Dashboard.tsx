@@ -22,7 +22,7 @@ interface Props {
 const getAvatarUrl = (person: Person): string => {
   const firstName = person.name.trim().split(/\s+/)[0].toLowerCase();
   const isFemale = ['anne', 'marie', 'kari', 'lise', 'ingrid', 'tone', 'siri', 'elin', 'sara', 'sofie', 'emma', 'nora', 'ida', 'maja', 'ella', 'frida', 'astrid', 'liv', 'thea', 'helen', 'kristin', 'camilla', 'hanna', 'marte', 'silje', 'mari', 'vilde', 'mille', 'tiril', 'beate', 'vigdis'].some(n => firstName.startsWith(n) || firstName.includes(n)) || firstName.endsWith('a') || firstName.endsWith('e');
-  const age = person.birth_date ? Math.floor((new Date().getTime() - new Date(person.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : (person.birth_year ? new Date().getFullYear() - person.birth_year : null);
+  const age = person.birth_date ? Math.floor((new Date().getTime() - new Date(person.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
   const seed = encodeURIComponent(person.name);
   const baseUrl = 'https://api.dicebear.com/7.x/avataaars/svg';
   const params: string[] = [`seed=${seed}`];
@@ -141,9 +141,6 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
       if (person.birth_date) {
         const birthDate = new Date(person.birth_date);
         const age = Math.floor((now.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        return age < 18;
-      } else if (person.birth_year) {
-        const age = currentYear - person.birth_year;
         return age < 18;
       }
       return false;
