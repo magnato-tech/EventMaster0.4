@@ -1,0 +1,582 @@
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { AppState, Person, GroupCategory, EventOccurrence, ProgramItem, Assignment, UUID, GroupRole, Task, NoticeMessage, CoreRole, ChangeLog, OccurrenceStatus } from './types';
+import { getDB, saveDB, performBulkCopy } from './db';
+import IdentityPicker from './components/IdentityPicker';
+import Dashboard from './components/Dashboard';
+import DashboardView from './components/DashboardView';
+import Navigation from './components/Navigation';
+import CalendarView from './components/CalendarView';
+import MasterMenu from './components/MasterMenu';
+import GroupsView from './components/GroupsView';
+import YearlyWheelView from './components/YearlyWheelView';
+import CommunicationView from './components/CommunicationView';
+import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3 } from 'lucide-react';
+
+// Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
+const parseLocalDate = (dateString: string): Date => {
+  // dateString er i format "YYYY-MM-DD"
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Opprett dato i lokal tid (Berlin time)
+  return new Date(year, month - 1, day);
+};
+
+const App: React.FC = () => {
+  const [db, setDb] = useState<AppState>(getDB());
+  const [currentUser, setCurrentUser] = useState<Person | null>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages'>('dashboard');
+  const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
+  const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
+
+  useEffect(() => {
+    saveDB(db);
+  }, [db]);
+
+  // AUTOMATISK SYNKRONISERING OG VARSLINGSLOGIKK
+  const syncStaffingAndNotify = useCallback((occurrenceId: UUID, state: AppState, actor: Person): AppState => {
+    const occ = state.eventOccurrences.find(o => o.id === occurrenceId);
+    if (!occ) return state;
+
+    const programItems = state.programItems.filter(p => p.occurrence_id === occurrenceId);
+    const existingAssignments = state.assignments.filter(a => a.occurrence_id === occurrenceId);
+    
+    // 1. Aggreger unike [Rolle + Person] fra programmet
+    const rolePersonMap = new Map<string, string[]>();
+    programItems.forEach(item => {
+      if (item.service_role_id) {
+        if (!rolePersonMap.has(item.service_role_id)) {
+          rolePersonMap.set(item.service_role_id, []);
+        }
+        const assignedPersons = rolePersonMap.get(item.service_role_id)!;
+        if (item.person_id && !assignedPersons.includes(item.person_id)) {
+          assignedPersons.push(item.person_id);
+        }
+      }
+    });
+
+    const newAssignments: Assignment[] = [];
+    const logs: ChangeLog[] = [];
+    const notices: NoticeMessage[] = [];
+
+    rolePersonMap.forEach((personIds, roleId) => {
+      personIds.forEach((pId, index) => {
+        newAssignments.push({
+          id: crypto.randomUUID(),
+          occurrence_id: occurrenceId,
+          service_role_id: roleId,
+          person_id: pId,
+          display_order: index + 1
+        });
+      });
+    });
+
+    // 2. Finn endringer for Logg og Varsling
+    const roleNames = new Map(state.serviceRoles.map(r => [r.id, r.name]));
+    const personNames = new Map(state.persons.map(p => [p.id, p.name]));
+    
+    // Enkel differanse-sjekk
+    newAssignments.forEach(na => {
+      const match = existingAssignments.find(ea => ea.service_role_id === na.service_role_id && ea.person_id === na.person_id);
+      if (!match) {
+        const roleName = roleNames.get(na.service_role_id) || 'Ukjent rolle';
+        const personName = personNames.get(na.person_id!) || 'Ingen';
+        const desc = `${roleName} ble satt til ${personName} av ${actor.name}`;
+        
+        logs.push({
+          id: crypto.randomUUID(),
+          occurrence_id: occurrenceId,
+          actor_id: actor.id,
+          timestamp: new Date().toISOString(),
+          description: desc
+        });
+
+        // Finn Møteleder for varsling
+        const motelederRole = state.serviceRoles.find(r => r.name.toLowerCase().includes('møteleder'));
+        const motelederAssignment = existingAssignments.find(a => a.service_role_id === motelederRole?.id);
+
+        // Systemmelding
+        notices.push({
+          id: crypto.randomUUID(),
+          sender_id: 'system',
+          recipient_role: CoreRole.PASTOR,
+          title: 'Bemanning oppdatert',
+          content: `Endring for ${occ.title_override || 'Gudstjeneste'} (${occ.date}): ${desc}`,
+          created_at: new Date().toISOString(),
+          occurrence_id: occurrenceId
+        });
+      }
+    });
+
+    return {
+      ...state,
+      assignments: [...state.assignments.filter(a => a.occurrence_id !== occurrenceId), ...newAssignments],
+      changeLogs: [...(state.changeLogs || []), ...logs],
+      noticeMessages: [...notices, ...state.noticeMessages],
+      eventOccurrences: state.eventOccurrences.map(o => o.id === occurrenceId ? { ...o, last_synced_at: new Date().toISOString() } : o)
+    };
+  }, []);
+
+  const findRecommendedPerson = (serviceRoleId: string, state: AppState): string | null => {
+    const teamLinks = state.groupServiceRoles.filter(gsr => gsr.service_role_id === serviceRoleId);
+    const teamIds = teamLinks.map(l => l.group_id);
+    const members = state.groupMembers.filter(gm => teamIds.includes(gm.group_id));
+    if (members.length === 0) return null;
+    const leader = members.find(m => m.role === GroupRole.LEADER);
+    return leader ? leader.person_id : members[0].person_id;
+  };
+
+  const autoFillOccurrence = (occurrenceId: string, state: AppState): AppState => {
+    const updatedAssignments = state.assignments.map(a => {
+      if (a.occurrence_id === occurrenceId && !a.person_id) {
+        return { ...a, person_id: findRecommendedPerson(a.service_role_id, state) };
+      }
+      return a;
+    });
+
+    const updatedProgramItems = state.programItems.map(p => {
+      if (p.occurrence_id === occurrenceId && !p.person_id && p.service_role_id) {
+        return { ...p, person_id: findRecommendedPerson(p.service_role_id, state) };
+      }
+      return p;
+    });
+
+    return {
+      ...state,
+      assignments: updatedAssignments,
+      programItems: updatedProgramItems
+    };
+  };
+
+  const handleUpdateAssignment = (id: string, personId: string | null) => {
+    setDb(prev => {
+      const target = prev.assignments.find(a => a.id === id);
+      if (!target || !target.occurrence_id) return prev;
+      
+      const nextState = {
+        ...prev,
+        assignments: prev.assignments.map(a => a.id === id ? { ...a, person_id: personId } : a)
+      };
+      
+      // Siden vakter nå styres av programpostene, må vi her også oppdatere relevante programposter hvis de finnes
+      const updatedProgramItems = nextState.programItems.map(p => 
+        (p.occurrence_id === target.occurrence_id && p.service_role_id === target.service_role_id) 
+        ? { ...p, person_id: personId } 
+        : p
+      );
+
+      return syncStaffingAndNotify(target.occurrence_id, { ...nextState, programItems: updatedProgramItems }, currentUser!);
+    });
+  };
+
+  const handleAddAssignment = (occurrenceId: string, roleId: string) => {
+    setDb(prev => {
+      const defaultPersonId = findRecommendedPerson(roleId, prev);
+      const newState = {
+        ...prev,
+        assignments: [...prev.assignments, {
+          id: crypto.randomUUID(),
+          occurrence_id: occurrenceId,
+          template_id: null,
+          service_role_id: roleId,
+          person_id: defaultPersonId
+        }]
+      };
+      return syncStaffingAndNotify(occurrenceId, newState, currentUser!);
+    });
+  };
+
+  const handleAddProgramItem = (item: ProgramItem) => {
+    setDb(prev => {
+      const newState = { ...prev, programItems: [...prev.programItems, item] };
+      return item.occurrence_id ? syncStaffingAndNotify(item.occurrence_id, newState, currentUser!) : newState;
+    });
+  };
+
+  const handleUpdateProgramItem = (id: string, updates: Partial<ProgramItem>) => {
+    setDb(prev => {
+      const target = prev.programItems.find(p => p.id === id);
+      const newState = {
+        ...prev,
+        programItems: prev.programItems.map(p => p.id === id ? { ...p, ...updates } : p)
+      };
+      return (target?.occurrence_id) ? syncStaffingAndNotify(target.occurrence_id, newState, currentUser!) : newState;
+    });
+  };
+
+  const handleReorderProgramItems = (occurrenceId: string, reorderedItems: ProgramItem[]) => {
+    setDb(prev => {
+      const newOrderMap = new Map(reorderedItems.map((item, index) => [item.id, index]));
+      const newState = {
+        ...prev,
+        programItems: prev.programItems.map(p => {
+          if (p.occurrence_id === occurrenceId && newOrderMap.has(p.id)) {
+            return { ...p, order: newOrderMap.get(p.id)! };
+          }
+          return p;
+        })
+      };
+      return syncStaffingAndNotify(occurrenceId, newState, currentUser!);
+    });
+  };
+
+  const handleDeleteProgramItem = (id: string) => {
+    setDb(prev => {
+      const target = prev.programItems.find(p => p.id === id);
+      const newState = {
+        ...prev,
+        programItems: prev.programItems.filter(p => p.id !== id)
+      };
+      return (target?.occurrence_id) ? syncStaffingAndNotify(target.occurrence_id, newState, currentUser!) : newState;
+    });
+  };
+
+  const handleCreateOccurrence = (templateId: string, date: string, time?: string) => {
+    const newId = crypto.randomUUID();
+    const newOccurrence: EventOccurrence = {
+      id: newId,
+      template_id: templateId,
+      date,
+      time,
+      status: OccurrenceStatus.DRAFT
+    };
+    
+    let nextDb = {
+      ...db,
+      eventOccurrences: [...db.eventOccurrences, newOccurrence]
+    };
+    
+    nextDb = performBulkCopy(newOccurrence, nextDb);
+    nextDb = autoFillOccurrence(newId, nextDb);
+    setDb(nextDb);
+  };
+
+  const handleUpdateOccurrence = (occurrenceId: string, updates: Partial<EventOccurrence>) => {
+    setDb(prev => ({
+      ...prev,
+      eventOccurrences: prev.eventOccurrences.map(occ => 
+        occ.id === occurrenceId ? { ...occ, ...updates } : occ
+      )
+    }));
+  };
+
+  const handleDeleteOccurrence = (occurrenceId: string) => {
+    const occ = db.eventOccurrences.find(o => o.id === occurrenceId);
+    if (!occ) return;
+    
+    const title = occ.title_override || db.eventTemplates.find(t => t.id === occ.template_id)?.title || 'Arrangementet';
+    const date = new Intl.DateTimeFormat('no-NO', { dateStyle: 'long' }).format(parseLocalDate(occ.date));
+    const timeStr = occ.time ? ` kl. ${occ.time}` : '';
+    
+    // Første bekreftelse: Vil du slette arrangementet?
+    if (!confirm(`Vil du slette arrangementet?\n\n"${title}"\n${date}${timeStr}\n\nDette vil også slette alle tilhørende programposter, bemanning og endringslogger.\n\nDenne handlingen kan ikke angres.`)) {
+      return;
+    }
+    
+    setDb(prev => ({
+      ...prev,
+      eventOccurrences: prev.eventOccurrences.filter(o => o.id !== occurrenceId),
+      assignments: prev.assignments.filter(a => a.occurrence_id !== occurrenceId),
+      programItems: prev.programItems.filter(p => p.occurrence_id !== occurrenceId),
+      changeLogs: prev.changeLogs.filter(c => c.occurrence_id !== occurrenceId)
+    }));
+  };
+
+  const handleCreateRecurringOccurrences = (
+    templateId: string, 
+    startDate: string, 
+    endDate: string,
+    frequencyType: 'weekly' | 'monthly',
+    interval: number,
+    time?: string
+  ) => {
+    let nextDb = { ...db };
+    
+    // Parse dates in local time
+    const parseLocalDate = (dateString: string): Date => {
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+    
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    let currentDate = parseLocalDate(startDate);
+    const endDateObj = parseLocalDate(endDate);
+    const startDayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Helper function to get nth occurrence of weekday in month
+    const getNthWeekdayInMonth = (year: number, month: number, n: number, targetDayOfWeek: number): Date | null => {
+      // Find first occurrence of target weekday in the month
+      const firstDay = new Date(year, month, 1);
+      const firstDayOfWeek = firstDay.getDay();
+      
+      // Calculate days to add to get to the first occurrence of target weekday
+      let daysToAdd = (targetDayOfWeek - firstDayOfWeek + 7) % 7;
+      
+      // If first day is the target weekday, daysToAdd is 0
+      // Otherwise, calculate the offset
+      const firstOccurrence = new Date(year, month, 1 + daysToAdd);
+      
+      // Add (n-1) weeks to get nth occurrence
+      const nthOccurrence = new Date(year, month, firstOccurrence.getDate() + (n - 1) * 7);
+      
+      // Check if the nth occurrence is still in the same month
+      if (nthOccurrence.getMonth() !== month) {
+        return null; // Nth occurrence doesn't exist in this month
+      }
+      
+      return nthOccurrence;
+    };
+    
+    const occurrences: { date: Date }[] = [];
+    
+    if (frequencyType === 'monthly') {
+      // Monthly: Find nth occurrence of weekday in each month
+      let checkYear = currentDate.getFullYear();
+      let checkMonth = currentDate.getMonth();
+      const endYear = endDateObj.getFullYear();
+      const endMonth = endDateObj.getMonth();
+      
+      while (checkYear < endYear || (checkYear === endYear && checkMonth <= endMonth)) {
+        const nthOccurrence = getNthWeekdayInMonth(checkYear, checkMonth, interval, startDayOfWeek);
+        
+        if (nthOccurrence && nthOccurrence >= currentDate && nthOccurrence <= endDateObj) {
+          occurrences.push({ date: new Date(nthOccurrence) });
+        }
+        
+        // Move to next month
+        checkMonth++;
+        if (checkMonth > 11) {
+          checkMonth = 0;
+          checkYear++;
+        }
+      }
+    } else {
+      // Weekly: Every N weeks
+      const intervalDays = interval * 7;
+      
+      while (currentDate <= endDateObj) {
+        occurrences.push({ date: new Date(currentDate) });
+        currentDate.setDate(currentDate.getDate() + intervalDays);
+      }
+    }
+    
+    // Create occurrences
+    occurrences.forEach(({ date }) => {
+      const dateStr = formatLocalDate(date);
+      const exists = nextDb.eventOccurrences.some(o => o.template_id === templateId && o.date === dateStr);
+      
+      if (!exists) {
+        const newId = crypto.randomUUID();
+        const newOccurrence: EventOccurrence = {
+          id: newId,
+          template_id: templateId,
+          date: dateStr,
+          time,
+          status: OccurrenceStatus.DRAFT
+        };
+        
+        nextDb.eventOccurrences.push(newOccurrence);
+        nextDb = performBulkCopy(newOccurrence, nextDb);
+        nextDb = autoFillOccurrence(newId, nextDb);
+      }
+    });
+    
+    setDb(nextDb);
+  };
+
+  const handleUpdateTask = (task: Task) => {
+    setDb(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(t => t.id === task.id ? task : t)
+    }));
+  };
+
+  const handleAddTask = (task: Task) => {
+    setDb(prev => ({
+      ...prev,
+      tasks: [...prev.tasks, task]
+    }));
+  };
+
+  const handleDeleteTask = (id: string) => {
+    setDb(prev => ({
+      ...prev,
+      tasks: prev.tasks.filter(t => t.id !== id)
+    }));
+  };
+
+  const handleIdentitySelect = (person: Person) => {
+    setCurrentUser(person);
+  };
+  
+  const handleViewGroup = (groupId: UUID) => {
+    setActiveTab('groups');
+    setInitialGroupId(groupId);
+  };
+
+  const handleViewPerson = (personId: UUID) => {
+    setActiveTab('groups');
+    setInitialPersonId(personId);
+  };
+
+  const handleAddMessage = (msg: NoticeMessage) => {
+    setDb(prev => ({
+      ...prev,
+      noticeMessages: [msg, ...prev.noticeMessages]
+    }));
+  };
+
+  const handleDeleteMessage = (id: UUID) => {
+    setDb(prev => ({
+      ...prev,
+      noticeMessages: prev.noticeMessages.filter(m => m.id !== id)
+    }));
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'groups') {
+      setInitialGroupId(null);
+      setInitialPersonId(null);
+    }
+  }, [activeTab]);
+
+  if (!currentUser) {
+    return <IdentityPicker persons={db.persons} onSelect={handleIdentitySelect} />;
+  }
+
+  const canSeeMessages = currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR || currentUser.core_role === CoreRole.TEAM_LEADER;
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-left">
+      <nav className="hidden md:flex flex-col w-64 bg-white border-r h-screen sticky top-0">
+        <div className="p-6">
+          <h1 className="text-xl font-bold text-indigo-700 leading-tight uppercase tracking-tighter">EventMaster<br/><span className="text-indigo-400">LMK</span></h1>
+        </div>
+        
+        <div className="flex-1 px-4 space-y-1 py-2">
+          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min Vaktliste" />
+          <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+          <NavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
+          <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+          {canSeeMessages && (
+            <NavItem active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} icon={<Bell size={18}/>} label="Oppslag & Dialog" />
+          )}
+          <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+          {currentUser.is_admin && (
+            <NavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master-oppsett" />
+          )}
+        </div>
+
+        <div className="p-4 border-t bg-slate-50">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+              {currentUser.name.charAt(0)}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs font-semibold truncate">{currentUser.name}</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{currentUser.is_admin ? 'Admin' : 'Frivillig'}</p>
+            </div>
+            <button onClick={() => setCurrentUser(null)} className="text-slate-400 hover:text-slate-600">
+              <User size={16} />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        {activeTab === 'dashboard' && <Dashboard db={db} currentUser={currentUser} onGoToWheel={() => setActiveTab('wheel')} onViewGroup={handleViewGroup} />}
+        {activeTab === 'statistics' && <DashboardView db={db} />}
+        {activeTab === 'calendar' && (() => {
+          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
+          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
+          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
+          const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
+          
+          return (
+            <CalendarView 
+              db={db} 
+              isAdmin={hasGroupLeaderRights} 
+            onUpdateAssignment={handleUpdateAssignment}
+            onAddAssignment={handleAddAssignment}
+            onSyncStaffing={() => {}} // Nå automatisk
+            onCreateOccurrence={handleCreateOccurrence}
+            onUpdateOccurrence={handleUpdateOccurrence}
+            onDeleteOccurrence={handleDeleteOccurrence}
+            onCreateRecurring={handleCreateRecurringOccurrences}
+            onAddProgramItem={handleAddProgramItem}
+            onUpdateProgramItem={handleUpdateProgramItem}
+            onReorderProgramItems={handleReorderProgramItems}
+            onDeleteProgramItem={handleDeleteProgramItem}
+          />
+          );
+        })()}
+        {activeTab === 'groups' && (() => {
+          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
+          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
+          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
+          const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
+          
+          return <GroupsView db={db} setDb={setDb} isAdmin={hasGroupLeaderRights} initialViewGroupId={initialGroupId} initialPersonId={initialPersonId} onViewPerson={handleViewPerson} />;
+        })()}
+        {activeTab === 'wheel' && <YearlyWheelView db={db} isAdmin={currentUser.is_admin} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
+        {activeTab === 'messages' && canSeeMessages && (
+          <CommunicationView db={db} currentUser={currentUser} onAddMessage={handleAddMessage} onDeleteMessage={handleDeleteMessage} />
+        )}
+        {activeTab === 'master' && currentUser.is_admin && (
+          <MasterMenu 
+            db={db} 
+            setDb={setDb} 
+            onCreateRecurring={handleCreateRecurringOccurrences}
+            onUpdateOccurrence={handleUpdateOccurrence}
+            onAddProgramItem={handleAddProgramItem}
+            onUpdateProgramItem={handleUpdateProgramItem}
+            onDeleteProgramItem={handleDeleteProgramItem}
+          />
+        )}
+      </main>
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 px-1 z-50 shadow-2xl">
+        <MobileNavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Vakter" />
+        <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+        <MobileNavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
+        <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+        {canSeeMessages && (
+          <MobileNavItem active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} icon={<Bell size={18}/>} label="Melding" />
+        )}
+        <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+        {currentUser.is_admin && (
+          <MobileNavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master" />
+        )}
+      </div>
+    </div>
+  );
+};
+
+const NavItem: React.FC<{active: boolean, onClick: () => void, icon: React.ReactNode, label: string}> = ({ active, onClick, icon, label }) => (
+  <button 
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold text-sm shadow-sm' : 'text-slate-600 hover:bg-slate-100 text-sm font-medium'}`}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+);
+
+const MobileNavItem: React.FC<{active: boolean, onClick: () => void, icon: React.ReactNode, label: string}> = ({ active, onClick, icon, label }) => (
+  <button 
+    onClick={onClick}
+    className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all ${active ? 'text-indigo-700' : 'text-slate-400'}`}
+  >
+    {icon}
+    <span className="text-[10px] font-bold">{label}</span>
+  </button>
+);
+
+export default App;
