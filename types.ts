@@ -96,6 +96,7 @@ export interface EventTemplate {
   title: string;
   type: string;
   recurrence_rule: string;
+  color?: string; // Farge for events (hex-kode, f.eks. '#2563eb' for blå)
 }
 
 export interface EventOccurrence {
@@ -108,6 +109,7 @@ export interface EventOccurrence {
   bible_verse?: string; // Dagens bibbelord
   status: OccurrenceStatus;
   last_synced_at?: string;
+  color?: string; // Farge for event (arves fra template)
 }
 
 export interface Assignment {
@@ -158,6 +160,7 @@ export interface NoticeMessage {
   content: string;
   created_at: string;
   occurrence_id?: UUID;
+  isRead?: boolean; // Standard false hvis ikke satt
 }
 
 export interface Family {

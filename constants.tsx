@@ -437,7 +437,7 @@ export const INITIAL_DATA: AppState = {
     { id: 'gsr8', group_id: 'g5', service_role_id: 'sr4', is_active: true },
   ],
   eventTemplates: [
-    { id: 't1', title: 'Gudstjeneste Standard', type: 'Gudstjeneste', recurrence_rule: 'Hver søndag kl. 11:00' },
+    { id: 't1', title: 'Gudstjeneste Standard', type: 'Gudstjeneste', recurrence_rule: 'Hver søndag kl. 11:00', color: '#2563eb' }, // Standard blå
   ],
   eventOccurrences: [],
   assignments: [
@@ -461,7 +461,8 @@ export const INITIAL_DATA: AppState = {
       recipient_role: CoreRole.TEAM_LEADER,
       title: 'Husk lederforum mandag!',
       content: 'Vi gleder oss til å se alle gruppeledere til en samling på mandag kl 19:00. Vi skal snakke om visjonen for høsten.',
-      created_at: new Date(Date.now() - 86400000).toISOString()
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      isRead: false
     }
   ],
   changeLogs: [],

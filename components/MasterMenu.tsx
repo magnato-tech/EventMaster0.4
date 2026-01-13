@@ -40,6 +40,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
   const [newTemplateTitle, setNewTemplateTitle] = useState('');
   const [newTemplateType, setNewTemplateType] = useState('Gudstjeneste');
   const [newTemplateRecurrence, setNewTemplateRecurrence] = useState('Hver søndag');
+  const [newTemplateColor, setNewTemplateColor] = useState('#2563eb'); // Standard blå
 
   const [recStartDate, setRecStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [recStartTime, setRecStartTime] = useState<string>('');
@@ -218,7 +219,8 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
       id: crypto.randomUUID(),
       title: newTemplateTitle,
       type: newTemplateType,
-      recurrence_rule: newTemplateRecurrence
+      recurrence_rule: newTemplateRecurrence,
+      color: newTemplateColor || '#2563eb'
     };
 
     setDb(prev => ({
@@ -227,9 +229,20 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
     }));
 
     setNewTemplateTitle('');
+    setNewTemplateColor('#2563eb');
     setIsTemplateModalOpen(false);
     setSelectedTemplate(newTemplate);
   };
+
+  // Faste fargealternativer
+  const colorOptions = [
+    { name: 'Blå', value: '#2563eb' },
+    { name: 'Grønn', value: '#16a34a' },
+    { name: 'Gul', value: '#ca8a04' },
+    { name: 'Rød', value: '#dc2626' },
+    { name: 'Lilla', value: '#9333ea' },
+    { name: 'Turkis', value: '#0891b2' }
+  ];
 
   const handleOpenAddModal = () => {
     setEditingProgramItem(null);
@@ -431,7 +444,13 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
               onClick={() => setSelectedTemplate(t)}
               className={`w-full text-left px-5 py-4 rounded-2xl transition-all border ${selectedTemplate?.id === t.id ? 'bg-amber-50 border-amber-200 text-amber-800 shadow-sm' : 'bg-white border-transparent text-slate-600 hover:bg-slate-50'}`}
             >
-              <p className="font-bold text-sm">{t.title}</p>
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"
+                  style={{ backgroundColor: t.color || '#2563eb' }}
+                />
+                <p className="font-bold text-sm">{t.title}</p>
+              </div>
               <p className="text-[10px] opacity-60 mt-1 uppercase tracking-tighter">{t.recurrence_rule}</p>
             </button>
           ))}
@@ -441,8 +460,53 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
           {selectedTemplate ? (
             <div className="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
               <div className="p-8 bg-amber-50 border-b border-amber-100 flex justify-between items-start">
-                <div>
-                  <h4 className="text-2xl font-bold text-amber-900">{selectedTemplate.title}</h4>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="text-2xl font-bold text-amber-900">{selectedTemplate.title}</h4>
+                    <div className="flex gap-2 items-center">
+                      {colorOptions.map(color => (
+                        <button
+                          key={color.value}
+                          type="button"
+                          onClick={() => {
+                            setDb(prev => ({
+                              ...prev,
+                              eventTemplates: prev.eventTemplates.map(t =>
+                                t.id === selectedTemplate.id
+                                  ? { ...t, color: color.value }
+                                  : t
+                              )
+                            }));
+                            setSelectedTemplate(prev => prev ? { ...prev, color: color.value } : null);
+                          }}
+                          className={`w-8 h-8 rounded-full border-2 transition-all ${
+                            (selectedTemplate.color || '#2563eb') === color.value
+                              ? 'border-slate-800 scale-110 shadow-lg'
+                              : 'border-slate-300 hover:border-slate-500'
+                          }`}
+                          style={{ backgroundColor: color.value }}
+                          title={color.name}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={selectedTemplate.color || '#2563eb'}
+                        onChange={e => {
+                          setDb(prev => ({
+                            ...prev,
+                            eventTemplates: prev.eventTemplates.map(t =>
+                              t.id === selectedTemplate.id
+                                ? { ...t, color: e.target.value }
+                                : t
+                            )
+                          }));
+                          setSelectedTemplate(prev => prev ? { ...prev, color: e.target.value } : null);
+                        }}
+                        className="w-8 h-8 rounded-full border-2 border-slate-300 cursor-pointer"
+                        title="Egendefinert farge"
+                      />
+                    </div>
+                  </div>
                   <p className="text-amber-700/60 font-medium">Denne malen brukes som "oppskrift" for nye hendelser.</p>
                 </div>
                 <div className="flex gap-2">
@@ -916,6 +980,32 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Navn på mal</label>
                 <input autoFocus required type="text" value={newTemplateTitle} onChange={e => setNewTemplateTitle(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500 transition-all" placeholder="f.eks. Lovsangsmøte" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Farge</label>
+                <div className="flex gap-2 items-center">
+                  {colorOptions.map(color => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setNewTemplateColor(color.value)}
+                      className={`w-10 h-10 rounded-full border-2 transition-all ${
+                        newTemplateColor === color.value 
+                          ? 'border-slate-800 scale-110 shadow-lg' 
+                          : 'border-slate-300 hover:border-slate-500'
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={newTemplateColor}
+                    onChange={e => setNewTemplateColor(e.target.value)}
+                    className="w-10 h-10 rounded-full border-2 border-slate-300 cursor-pointer"
+                    title="Egendefinert farge"
+                  />
+                </div>
               </div>
               <button type="submit" className="w-full py-4 bg-amber-500 text-white rounded-2xl font-bold shadow-lg hover:bg-amber-600 transition-all">Opprett Master</button>
             </form>

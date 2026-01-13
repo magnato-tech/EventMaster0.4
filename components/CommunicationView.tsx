@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppState, Person, NoticeMessage, CoreRole, UUID } from '../types';
 // Fix: Added ArrowRight to the imports from lucide-react
 import { Bell, Send, Trash2, User, Clock, Plus, X, ShieldAlert, MessageSquare, Sparkles, Calendar, ArrowRight } from 'lucide-react';
@@ -9,9 +9,16 @@ interface Props {
   currentUser: Person;
   onAddMessage: (msg: NoticeMessage) => void;
   onDeleteMessage: (id: UUID) => void;
+  onMarkMessagesAsRead?: () => void;
 }
 
-const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage }) => {
+const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage, onMarkMessagesAsRead }) => {
+  // Marker alle meldinger som lest når komponenten monteres
+  useEffect(() => {
+    if (onMarkMessagesAsRead) {
+      onMarkMessagesAsRead();
+    }
+  }, [onMarkMessagesAsRead]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -44,7 +51,8 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
       recipient_role: recipient,
       title,
       content,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      isRead: false
     };
 
     onAddMessage(newMessage);
