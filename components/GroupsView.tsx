@@ -7,12 +7,14 @@ interface Props {
   db: AppState;
   setDb: React.Dispatch<React.SetStateAction<AppState>>;
   isAdmin: boolean;
+  currentUserId?: UUID;
+  userLeaderGroups?: UUID[]; // Grupper hvor brukeren er leder/nestleder
   initialViewGroupId?: UUID | null;
   initialPersonId?: UUID | null;
   onViewPerson?: (personId: UUID) => void;
 }
 
-const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, initialPersonId, onViewPerson }) => {
+const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLeaderGroups = [], initialViewGroupId, initialPersonId, onViewPerson }) => {
   const [activeTab, setActiveTab] = useState<'persons' | 'families' | 'barnekirke' | 'fellowship' | 'service' | 'leadership' | 'roles'>('persons');
   
   // Modal & View States
@@ -84,12 +86,19 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const filteredGroups = useMemo(() => {
-    if (activeTab === 'barnekirke') return db.groups.filter(g => g.category === GroupCategory.BARNKIRKE);
-    if (activeTab === 'service') return db.groups.filter(g => g.category === GroupCategory.SERVICE);
-    if (activeTab === 'fellowship') return db.groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
-    if (activeTab === 'leadership') return db.groups.filter(g => g.category === GroupCategory.STRATEGY);
+    let groups = db.groups;
+    
+    // Scoped Access: Hvis brukeren ikke er admin, vis kun grupper de leder
+    if (!isAdmin && userLeaderGroups.length > 0) {
+      groups = groups.filter(g => userLeaderGroups.includes(g.id));
+    }
+    
+    if (activeTab === 'barnekirke') return groups.filter(g => g.category === GroupCategory.BARNKIRKE);
+    if (activeTab === 'service') return groups.filter(g => g.category === GroupCategory.SERVICE);
+    if (activeTab === 'fellowship') return groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
+    if (activeTab === 'leadership') return groups.filter(g => g.category === GroupCategory.STRATEGY);
     return [];
-  }, [db.groups, activeTab]);
+  }, [db.groups, activeTab, isAdmin, userLeaderGroups]);
   const managedGroup = db.groups.find(g => g.id === manageGroupId);
   const viewedGroup = db.groups.find(g => g.id === viewingGroupId);
   const viewedRole = db.serviceRoles.find(r => r.id === viewingRoleId);
@@ -1095,7 +1104,23 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   }, [db.persons, getPersonRole]);
 
   const filteredPersons = useMemo(() => {
+    // Scoped Access: Hvis brukeren ikke er admin, vis kun medlemmer fra gruppene de leder
+    let accessiblePersonIds: Set<UUID> | null = null;
+    if (!isAdmin && currentUserId && userLeaderGroups.length > 0) {
+      // Finn alle person-IDer som er medlemmer i brukerens grupper
+      accessiblePersonIds = new Set(
+        db.groupMembers
+          .filter(gm => userLeaderGroups.includes(gm.group_id))
+          .map(gm => gm.person_id)
+      );
+    }
+    
     let filtered = db.persons.filter(p => {
+      // Scoped Access: Hvis ikke admin, vis kun medlemmer fra egne grupper
+      if (accessiblePersonIds && !accessiblePersonIds.has(p.id)) {
+        return false;
+      }
+      
       const matchesSearch = p.name.toLowerCase().includes(personSearch.toLowerCase()) ||
                            (p.email && p.email.toLowerCase().includes(personSearch.toLowerCase())) ||
                            (p.phone && p.phone.includes(personSearch));

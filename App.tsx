@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppState, Person, GroupCategory, EventOccurrence, ProgramItem, Assignment, UUID, GroupRole, Task, NoticeMessage, CoreRole, ChangeLog, OccurrenceStatus } from './types';
-import { getDB, saveDB, performBulkCopy } from './db';
+import { getDB, saveDB, performBulkCopy, downloadPersonsAndGroups, exportPersonsAndGroups } from './db';
 import IdentityPicker from './components/IdentityPicker';
 import Dashboard from './components/Dashboard';
 import DashboardView from './components/DashboardView';
@@ -11,7 +11,7 @@ import MasterMenu from './components/MasterMenu';
 import GroupsView from './components/GroupsView';
 import YearlyWheelView from './components/YearlyWheelView';
 import CommunicationView from './components/CommunicationView';
-import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3 } from 'lucide-react';
+import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3, Shield } from 'lucide-react';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
 const parseLocalDate = (dateString: string): Date => {
@@ -30,6 +30,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     saveDB(db);
+    // Gjør eksport-funksjoner tilgjengelige globalt for debugging
+    if (typeof window !== 'undefined') {
+      (window as any).exportPersonsAndGroups = exportPersonsAndGroups;
+      (window as any).downloadPersonsAndGroups = downloadPersonsAndGroups;
+    }
   }, [db]);
 
   // AUTOMATISK SYNKRONISERING OG VARSLINGSLOGIKK
@@ -587,13 +592,35 @@ const App: React.FC = () => {
           );
         })()}
         {activeTab === 'groups' && (() => {
-          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
-          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
-          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
-          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
-          const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
+          // Kun admins har tilgang til medlemsregisteret
+          if (!currentUser.is_admin) {
+            return (
+              <div className="p-8 text-center text-slate-500">
+                <Shield size={48} className="mx-auto mb-4 text-slate-300" />
+                <h3 className="text-xl font-bold mb-2">Tilgang nektet</h3>
+                <p className="text-sm">Medlemsregisteret er kun tilgjengelig for administratorer.</p>
+              </div>
+            );
+          }
           
-          return <GroupsView db={db} setDb={setDb} isAdmin={hasGroupLeaderRights} initialViewGroupId={initialGroupId} initialPersonId={initialPersonId} onViewPerson={handleViewPerson} />;
+          // For admins: Finn hvilke grupper de er leder/nestleder i (for scoped access)
+          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+          const userLeaderGroups = userGroupMemberships
+            .filter(gm => gm.role === GroupRole.LEADER || gm.role === GroupRole.DEPUTY_LEADER)
+            .map(gm => gm.group_id);
+          
+          return (
+            <GroupsView 
+              db={db} 
+              setDb={setDb} 
+              isAdmin={currentUser.is_admin} 
+              currentUserId={currentUser.id}
+              userLeaderGroups={userLeaderGroups}
+              initialViewGroupId={initialGroupId} 
+              initialPersonId={initialPersonId} 
+              onViewPerson={handleViewPerson} 
+            />
+          );
         })()}
         {activeTab === 'wheel' && <YearlyWheelView db={db} isAdmin={currentUser.is_admin} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
         {activeTab === 'messages' && canSeeMessages && (

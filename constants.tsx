@@ -180,81 +180,8 @@ const generatedPersons = generate45Persons();
 
 export const INITIAL_DATA: AppState = {
   persons: generatedPersons,
-  groups: [
-    { id: 'g1', name: 'Lovsang', category: GroupCategory.SERVICE, description: 'Ansvarlig for musikk og tilbedelse under gudstjenester.' },
-    { id: 'g2', name: 'Teknikk', category: GroupCategory.SERVICE, description: 'Lyd, lys og bilde.' },
-    { id: 'g3', name: 'Vertskap', category: GroupCategory.SERVICE, description: 'Møteverter, kirkekaffe, baking og pynting.' },
-    { id: 'g4', name: 'Ledelse & Forkynnelse', category: GroupCategory.SERVICE, description: 'Talerer og møteledere.' },
-    { id: 'g5', name: 'Barn & Unge', category: GroupCategory.SERVICE, description: 'Barnekirke og trosopplæring.' },
-  ],
-  // Generer gruppemedlemmer: hver gruppe skal ha 5-6 medlemmer
-  // Noen personer kan være i flere grupper
-  groupMembers: (() => {
-    const members: GroupMember[] = [];
-    let memberCounter = 1;
-    
-    // g1: Lovsang (6 medlemmer) - p1-p6
-    const lovsangMembers = [1, 2, 3, 4, 5, 6];
-    lovsangMembers.forEach((personIndex, idx) => {
-      members.push({
-        id: `gm${memberCounter++}`,
-        group_id: 'g1',
-        person_id: `p${personIndex}`,
-        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
-        service_role_id: idx === 0 ? 'sr5' : undefined
-      });
-    });
-    
-    // g2: Teknikk (5 medlemmer) - p3, p7-p10 (p3 er også i Lovsang)
-    const teknikkMembers = [3, 7, 8, 9, 10];
-    teknikkMembers.forEach((personIndex, idx) => {
-      members.push({
-        id: `gm${memberCounter++}`,
-        group_id: 'g2',
-        person_id: `p${personIndex}`,
-        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
-        service_role_id: idx === 0 ? 'sr6' : (idx === 1 ? 'sr7' : undefined)
-      });
-    });
-    
-    // g3: Vertskap (6 medlemmer) - p11-p16
-    const vertskapMembers = [11, 12, 13, 14, 15, 16];
-    vertskapMembers.forEach((personIndex, idx) => {
-      members.push({
-        id: `gm${memberCounter++}`,
-        group_id: 'g3',
-        person_id: `p${personIndex}`,
-        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
-        service_role_id: idx === 0 ? 'sr9' : (idx === 1 ? 'sr10' : undefined)
-      });
-    });
-    
-    // g4: Ledelse & Forkynnelse (6 medlemmer) - p1, p17-p21 (p1 er også i Lovsang og er admin)
-    const ledelseMembers = [1, 17, 18, 19, 20, 21];
-    ledelseMembers.forEach((personIndex, idx) => {
-      members.push({
-        id: `gm${memberCounter++}`,
-        group_id: 'g4',
-        person_id: `p${personIndex}`,
-        role: idx === 0 ? GroupRole.LEADER : (idx === 1 ? GroupRole.DEPUTY_LEADER : GroupRole.MEMBER),
-        service_role_id: idx === 0 ? 'sr1' : (idx === 1 ? 'sr2' : undefined)
-      });
-    });
-    
-    // g5: Barn & Unge (5 medlemmer) - p22-p26
-    const barnekirkeMembers = [22, 23, 24, 25, 26];
-    barnekirkeMembers.forEach((personIndex, idx) => {
-      members.push({
-        id: `gm${memberCounter++}`,
-        group_id: 'g5',
-        person_id: `p${personIndex}`,
-        role: idx === 0 ? GroupRole.LEADER : GroupRole.MEMBER,
-        service_role_id: idx === 0 ? 'sr4' : undefined
-      });
-    });
-    
-    return members;
-  })(),
+  groups: [],
+  groupMembers: [],
   serviceRoles: [
     {
       id: 'sr1',
@@ -526,32 +453,7 @@ function populateFamilyData(baseData: AppState): AppState {
   const newFamilies: Family[] = [...baseData.families];
   const newFamilyMembers: FamilyMember[] = [...baseData.familyMembers];
   const newServiceRoles: ServiceRole[] = [...baseData.serviceRoles];
-  const newGroupMembers: GroupMember[] = [...baseData.groupMembers];
   const newGroupServiceRoles: GroupServiceRole[] = [...baseData.groupServiceRoles];
-  
-  // Mapping av rolle-navn til service role ID-er
-  const roleNameToServiceRoleId: Record<string, string> = {
-    'Lovsang': 'sr5',
-    'Lyd': 'sr6',
-    'Møteleder': 'sr1',
-    'Møtevert': 'sr9',
-    'Barnekirke': 'sr4',
-    'Bilde': 'sr7',
-    'Taler': 'sr2',
-    'Forbønn': 'sr3'
-  };
-
-  // Mapping av rolle-navn til gruppe ID-er
-  const roleNameToGroupId: Record<string, string> = {
-    'Lovsang': 'g1',
-    'Lyd': 'g2',
-    'Møteleder': 'g4',
-    'Møtevert': 'g3',
-    'Barnekirke': 'g5',
-    'Bilde': 'g2',
-    'Taler': 'g4',
-    'Forbønn': 'g4'
-  };
 
   let personCounter = 100; // Start fra 100 for å unngå konflikter
   let familyCounter = 1;
@@ -620,38 +522,6 @@ function populateFamilyData(baseData: AppState): AppState {
       }
       
       adultPersons.push(person);
-
-      // Koble person til gruppe og service role (hvis ikke allerede koblet)
-      const serviceRoleId = roleNameToServiceRoleId[voksen.rolle];
-      const groupId = roleNameToGroupId[voksen.rolle];
-      
-      if (serviceRoleId && groupId) {
-        // Sjekk om GroupMember allerede eksisterer
-        const existingGroupMember = newGroupMembers.find(
-          gm => gm.person_id === person.id && gm.group_id === groupId
-        );
-        
-        if (!existingGroupMember) {
-          // Opprett GroupMember
-          const groupMember: GroupMember = {
-            id: `gm${personCounter++}`,
-            group_id: groupId,
-            person_id: person.id,
-            role: GroupRole.MEMBER,
-            service_role_id: serviceRoleId
-          };
-          newGroupMembers.push(groupMember);
-        } else {
-          // Oppdater eksisterende GroupMember med service_role_id hvis den mangler
-          const index = newGroupMembers.indexOf(existingGroupMember);
-          if (!existingGroupMember.service_role_id) {
-            newGroupMembers[index] = {
-              ...existingGroupMember,
-              service_role_id: serviceRoleId
-            };
-          }
-        }
-      }
     });
 
     // Opprett familiemedlemmer for voksne (som ektefeller/partnere)
@@ -741,7 +611,6 @@ function populateFamilyData(baseData: AppState): AppState {
     persons: newPersons,
     families: newFamilies,
     familyMembers: newFamilyMembers,
-    groupMembers: newGroupMembers,
     serviceRoles: newServiceRoles,
     groupServiceRoles: newGroupServiceRoles
   };
@@ -869,4 +738,14 @@ const currentYear = new Date().getFullYear();
 export const POPULATED_DATA: AppState = {
   ...populatedWithFamilies,
   tasks: [...populatedWithFamilies.tasks, ...generateYearlyWheelTasks(currentYear)]
+};
+
+// Eksporter funksjon for backup av personer og grupper
+export const exportPersonsAndGroups = () => {
+  return {
+    persons: POPULATED_DATA.persons,
+    groups: POPULATED_DATA.groups,
+    exportDate: new Date().toISOString(),
+    version: '0.4'
+  };
 };

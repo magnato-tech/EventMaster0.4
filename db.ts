@@ -1,17 +1,72 @@
 
-import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus } from './types';
+import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus, Person } from './types';
 import { POPULATED_DATA } from './constants';
 
 const DB_KEY = 'eventmaster_lmk_db';
 
-export const getDB = (): AppState => {
-  const data = localStorage.getItem(DB_KEY);
-  if (!data) {
-    // Ingen data i localStorage, bruk POPULATED_DATA
-    return POPULATED_DATA;
+// Hjelpefunksjon for å sanere fødselsdatoer til ISO-format (YYYY-MM-DD)
+const sanitizeBirthDate = (date: string | undefined | null): string | undefined => {
+  if (!date) return undefined;
+  
+  // Hvis allerede i ISO-format (YYYY-MM-DD), returner som den er
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
   }
   
-  const parsedData: AppState = JSON.parse(data);
+  // Prøv å parse som Date og konverter til ISO-format
+  try {
+    const parsed = new Date(date);
+    if (!isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {
+    // Hvis parsing feiler, returner undefined
+  }
+  
+  return undefined;
+};
+
+// Hjelpefunksjon for å laste data fra master_data_backup.json (hvis den finnes)
+const loadFromBackup = (): Partial<AppState> | null => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    // Prøv å laste fra backup-filen via fetch (kun i browser)
+    // Merk: Dette vil ikke fungere direkte fra filsystemet, men kan brukes hvis filen er tilgjengelig
+    // For nå, returner null og bruk localStorage
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getDB = (): AppState => {
+  // Først prøv å laste fra backup-filen (hvis tilgjengelig)
+  const backupData = loadFromBackup();
+  
+  const data = localStorage.getItem(DB_KEY);
+  let parsedData: AppState;
+  
+  if (!data && backupData) {
+    // Bruk backup-data hvis localStorage er tom
+    parsedData = { ...POPULATED_DATA, ...backupData } as AppState;
+  } else if (!data) {
+    // Ingen data i localStorage eller backup, bruk POPULATED_DATA
+    parsedData = POPULATED_DATA;
+  } else {
+    parsedData = JSON.parse(data);
+  }
+  
+  // Saner alle fødselsdatoer til ISO-format
+  if (parsedData.persons) {
+    parsedData.persons = parsedData.persons.map((person: Person) => ({
+      ...person,
+      birth_date: sanitizeBirthDate(person.birth_date)
+    }));
+  }
   
   // Sjekk om vi mangler familie-data eller tasks (enten tom array eller undefined)
   const hasFamilies = parsedData.families && Array.isArray(parsedData.families) && parsedData.families.length > 0;
@@ -104,6 +159,50 @@ export const debugFamilyData = (): {
       familyMembers: POPULATED_DATA.familyMembers.length
     }
   };
+};
+
+// Eksporter personer og grupper til JSON
+export const exportPersonsAndGroups = (): {
+  persons: any[];
+  groups: any[];
+  exportDate: string;
+  version: string;
+} => {
+  const db = getDB();
+  return {
+    persons: db.persons || [],
+    groups: db.groups || [],
+    exportDate: new Date().toISOString(),
+    version: '0.4'
+  };
+};
+
+// Hjelpefunksjon for å eksportere og laste ned som fil (kan kalles fra browser console)
+export const downloadPersonsAndGroups = () => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    console.error('❌ Denne funksjonen kan kun kjøres i nettleseren');
+    return null;
+  }
+  
+  const exportData = exportPersonsAndGroups();
+  const json = JSON.stringify(exportData, null, 2);
+  
+  // Last ned som fil
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'master_data_backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  console.log('✅ Eksportert:', {
+    persons: exportData.persons.length,
+    groups: exportData.groups.length,
+    exportDate: exportData.exportDate
+  });
+  
+  return exportData;
 };
 
 /**

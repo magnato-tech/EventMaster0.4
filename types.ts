@@ -65,6 +65,8 @@ export interface Group {
   link?: string;
   parent_id?: UUID | null;
   gathering_pattern?: GatheringPattern;
+  leaderId?: string;
+  deputyId?: string;
 }
 
 export interface GroupMember {
