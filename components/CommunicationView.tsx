@@ -10,9 +10,10 @@ interface Props {
   onAddMessage: (msg: NoticeMessage) => void;
   onDeleteMessage: (id: UUID) => void;
   onMarkMessagesAsRead?: () => void;
+  onViewOccurrence?: (occurrenceId: UUID) => void;
 }
 
-const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage, onMarkMessagesAsRead }) => {
+const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage, onMarkMessagesAsRead, onViewOccurrence }) => {
   // Marker alle meldinger som lest når komponenten monteres
   useEffect(() => {
     if (onMarkMessagesAsRead) {
@@ -31,11 +32,18 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
 
   const visibleMessages = useMemo(() => {
     return (db.noticeMessages || []).filter(msg => {
+      // Direkte melding til brukeren
+      if (msg.recipient_id === currentUser.id) return true;
+      
+      // Meldinger sendt av brukeren selv
+      if (msg.sender_id === currentUser.id) return true;
+
+      // Rollebaserte meldinger
       if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
-        return msg.sender_id === currentUser.id || msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN;
+        return msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN || msg.recipient_role === CoreRole.TEAM_LEADER;
       }
       if (currentUser.core_role === CoreRole.TEAM_LEADER) {
-        return msg.recipient_role === CoreRole.TEAM_LEADER || msg.sender_id === currentUser.id;
+        return msg.recipient_role === CoreRole.TEAM_LEADER;
       }
       return false;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -116,7 +124,9 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                       </p>
                       <div className="flex items-center gap-2">
                          <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${isSystem ? 'bg-emerald-100 text-emerald-700' : isFromMe ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-700'}`}>
-                           {isSystem ? 'Automatisk' : isFromMe ? `Til: ${getRoleLabel(msg.recipient_role)}` : getRoleLabel(sender?.core_role || CoreRole.GUEST)}
+                           {isSystem ? 'Automatisk' : isFromMe ? 
+                             (msg.recipient_id ? `Til: ${db.persons.find(p => p.id === msg.recipient_id)?.name || 'Ukjent'}` : `Til: ${getRoleLabel(msg.recipient_role as CoreRole)}`) : 
+                             (msg.recipient_id ? 'Til deg' : getRoleLabel(sender?.core_role || CoreRole.GUEST))}
                          </span>
                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
                            <Clock size={10}/> {getTimeAgo(msg.created_at)}
@@ -138,11 +148,20 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                   <div className="mt-4 p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
                       <Calendar size={14} className="text-indigo-500" />
-                      {linkedOcc.title_override || 'Gudstjeneste'} ({linkedOcc.date})
+                      {linkedOcc.title_override || db.eventTemplates.find(t => t.id === linkedOcc.template_id)?.title || 'Arrangement'} ({linkedOcc.date})
                     </div>
-                    <button className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                      Vis detaljer <ArrowRight size={12} />
-                    </button>
+                    {onViewOccurrence ? (
+                      <button
+                        onClick={() => onViewOccurrence(linkedOcc.id)}
+                        className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+                      >
+                        Vis detaljer <ArrowRight size={12} />
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold text-indigo-400 flex items-center gap-1">
+                        Vis detaljer <ArrowRight size={12} />
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

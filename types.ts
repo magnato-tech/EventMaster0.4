@@ -157,7 +157,8 @@ export interface ChangeLog {
 export interface NoticeMessage {
   id: UUID;
   sender_id: UUID | 'system';
-  recipient_role: CoreRole; 
+  recipient_role?: CoreRole; 
+  recipient_id?: UUID;
   title: string;
   content: string;
   created_at: string;

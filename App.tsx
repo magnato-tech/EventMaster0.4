@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages'>('dashboard');
   const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
   const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
+  const [calendarFocusOccurrenceId, setCalendarFocusOccurrenceId] = useState<UUID | null>(null);
 
   useEffect(() => {
     saveDB(db);
@@ -78,8 +79,6 @@ const App: React.FC = () => {
     // 2. Finn endringer for Logg og Varsling
     const roleNames = new Map(state.serviceRoles.map(r => [r.id, r.name]));
     const personNames = new Map(state.persons.map(p => [p.id, p.name]));
-    
-    // Enkel differanse-sjekk
     newAssignments.forEach(na => {
       const match = existingAssignments.find(ea => ea.service_role_id === na.service_role_id && ea.person_id === na.person_id);
       if (!match) {
@@ -99,7 +98,7 @@ const App: React.FC = () => {
         const motelederRole = state.serviceRoles.find(r => r.name.toLowerCase().includes('møteleder'));
         const motelederAssignment = existingAssignments.find(a => a.service_role_id === motelederRole?.id);
 
-        // Systemmelding
+        // Systemmelding til Pastor
         notices.push({
           id: crypto.randomUUID(),
           sender_id: 'system',
@@ -110,6 +109,21 @@ const App: React.FC = () => {
           occurrence_id: occurrenceId,
           isRead: false
         });
+
+        // Personlig melding til den som har fått oppgaven
+        if (na.person_id) {
+          const eventTitle = occ.title_override || state.eventTemplates.find(t => t.id === occ.template_id)?.title || 'Arrangement';
+          notices.push({
+            id: crypto.randomUUID(),
+            sender_id: 'system',
+            recipient_id: na.person_id,
+            title: 'Ny oppgave tildelt',
+            content: `Du har blitt satt opp som ${roleName} på ${eventTitle} (${occ.date}).`,
+            created_at: new Date().toISOString(),
+            occurrence_id: occurrenceId,
+            isRead: false
+          });
+        }
       }
     });
 
@@ -453,9 +467,6 @@ const App: React.FC = () => {
   const hasUnreadMessages = useMemo(() => {
     if (!currentUser) return false;
     
-    const canSeeMessages = currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR || currentUser.core_role === CoreRole.TEAM_LEADER;
-    if (!canSeeMessages) return false;
-    
     return db.noticeMessages.some(msg => {
       // Ignorer allerede leste meldinger
       if (msg.isRead === true) return false;
@@ -463,6 +474,9 @@ const App: React.FC = () => {
       // Ignorer meldinger sendt av brukeren selv
       if (msg.sender_id === currentUser.id) return false;
       
+      // Sjekk personlig melding
+      if (msg.recipient_id === currentUser.id) return true;
+
       // Sjekk om meldingen er relevant for brukerens rolle
       if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
         // Admin/Pastor kan se systemmeldinger og meldinger rettet til ADMIN eller PASTOR
@@ -479,9 +493,6 @@ const App: React.FC = () => {
   const handleMarkMessagesAsRead = useCallback(() => {
     if (!currentUser) return;
     
-    const canSeeMessages = currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR || currentUser.core_role === CoreRole.TEAM_LEADER;
-    if (!canSeeMessages) return;
-    
     setDb(prev => ({
       ...prev,
       noticeMessages: prev.noticeMessages.map(msg => {
@@ -489,17 +500,18 @@ const App: React.FC = () => {
         if (msg.isRead === true) return msg; // Allerede lest
         if (msg.sender_id === currentUser.id) return msg; // Sendt av brukeren selv
         
+        const isPersonal = msg.recipient_id === currentUser.id;
+        let isRelevantRole = false;
+
         // Sjekk om meldingen er relevant for brukerens rolle
         if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
-          const isRelevant = msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN || msg.recipient_role === CoreRole.TEAM_LEADER;
-          if (isRelevant) {
-            return { ...msg, isRead: true };
-          }
+          isRelevantRole = msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN || msg.recipient_role === CoreRole.TEAM_LEADER;
+        } else if (currentUser.core_role === CoreRole.TEAM_LEADER) {
+          isRelevantRole = msg.recipient_role === CoreRole.TEAM_LEADER;
         }
-        if (currentUser.core_role === CoreRole.TEAM_LEADER) {
-          if (msg.recipient_role === CoreRole.TEAM_LEADER) {
-            return { ...msg, isRead: true };
-          }
+
+        if (isPersonal || isRelevantRole) {
+          return { ...msg, isRead: true };
         }
         return msg;
       })
@@ -535,17 +547,15 @@ const App: React.FC = () => {
           {currentUser.is_admin && (
             <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
           )}
-          {canSeeMessages && (
-            <NavItem 
-              active={activeTab === 'messages'} 
-              onClick={() => {
-                setActiveTab('messages');
-                handleMarkMessagesAsRead();
-              }} 
-              icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
-              label="Oppslag & Dialog" 
-            />
-          )}
+          <NavItem 
+            active={activeTab === 'messages'} 
+            onClick={() => {
+              setActiveTab('messages');
+              handleMarkMessagesAsRead();
+            }} 
+            icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
+            label="Oppslag & Dialog" 
+          />
           {currentUser.is_admin && (
             <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
           )}
@@ -584,6 +594,8 @@ const App: React.FC = () => {
             <CalendarView 
               db={db} 
               isAdmin={hasGroupLeaderRights} 
+              focusOccurrenceId={calendarFocusOccurrenceId}
+              onFocusHandled={() => setCalendarFocusOccurrenceId(null)}
             onUpdateAssignment={handleUpdateAssignment}
             onAddAssignment={handleAddAssignment}
             onSyncStaffing={() => {}} // Nå automatisk
@@ -630,8 +642,18 @@ const App: React.FC = () => {
           );
         })()}
         {activeTab === 'wheel' && <YearlyWheelView db={db} isAdmin={currentUser.is_admin} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
-        {activeTab === 'messages' && canSeeMessages && (
-          <CommunicationView db={db} currentUser={currentUser} onAddMessage={handleAddMessage} onDeleteMessage={handleDeleteMessage} onMarkMessagesAsRead={handleMarkMessagesAsRead} />
+        {activeTab === 'messages' && (
+          <CommunicationView
+            db={db}
+            currentUser={currentUser}
+            onAddMessage={handleAddMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onMarkMessagesAsRead={handleMarkMessagesAsRead}
+            onViewOccurrence={(occurrenceId) => {
+              setCalendarFocusOccurrenceId(occurrenceId);
+              setActiveTab('calendar');
+            }}
+          />
         )}
         {activeTab === 'master' && currentUser.is_admin && (
           <MasterMenu 
@@ -655,17 +677,15 @@ const App: React.FC = () => {
         {currentUser.is_admin && (
           <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
         )}
-        {canSeeMessages && (
-          <MobileNavItem 
-            active={activeTab === 'messages'} 
-            onClick={() => {
-              setActiveTab('messages');
-              handleMarkMessagesAsRead();
-            }} 
-            icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
-            label="Melding" 
-          />
-        )}
+        <MobileNavItem 
+          active={activeTab === 'messages'} 
+          onClick={() => {
+            setActiveTab('messages');
+            handleMarkMessagesAsRead();
+          }} 
+          icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
+          label="Melding" 
+        />
         {currentUser.is_admin && (
           <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
         )}

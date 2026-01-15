@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { AppState, Person, GroupCategory, ServiceRole, Assignment, UUID, EventOccurrence, Task, ProgramItem } from '../types';
+import { AppState, Person, GroupCategory, Assignment, UUID, EventOccurrence, Task, ProgramItem } from '../types';
 import { Calendar, Users, Bell, ArrowRight, X, CheckCircle2, Shield, Clock, AlertCircle, ListChecks, ChevronRight, ArrowUp } from 'lucide-react';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)

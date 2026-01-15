@@ -33,11 +33,13 @@ interface Props {
   onUpdateProgramItem: (id: string, updates: Partial<ProgramItem>) => void;
   onReorderProgramItems: (occurrenceId: string, reorderedItems: ProgramItem[]) => void;
   onDeleteProgramItem: (id: string) => void;
+  focusOccurrenceId?: UUID | null;
+  onFocusHandled?: () => void;
 }
 
 const CalendarView: React.FC<Props> = ({ 
   db, isAdmin, onUpdateAssignment, onAddAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
-  onAddProgramItem, onUpdateProgramItem, onReorderProgramItems, onDeleteProgramItem 
+  onAddProgramItem, onUpdateProgramItem, onReorderProgramItems, onDeleteProgramItem, focusOccurrenceId, onFocusHandled
 }) => {
   const [selectedOccId, setSelectedOccId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
@@ -74,6 +76,19 @@ const CalendarView: React.FC<Props> = ({
 
   const occurrences = [...db.eventOccurrences].sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
   const selectedOcc = db.eventOccurrences.find(o => o.id === selectedOccId);
+
+  useEffect(() => {
+    if (!focusOccurrenceId) return;
+    const exists = db.eventOccurrences.some(o => o.id === focusOccurrenceId);
+    if (exists) {
+      setSelectedOccId(focusOccurrenceId);
+      setActiveTab('program');
+      setViewMode('list');
+    }
+    if (onFocusHandled) {
+      onFocusHandled();
+    }
+  }, [focusOccurrenceId, db.eventOccurrences, onFocusHandled]);
 
   const getTemplateTitle = (tid: string | null) => {
     if (!tid) return 'Ukjent';

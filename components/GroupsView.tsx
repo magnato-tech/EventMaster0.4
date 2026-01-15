@@ -299,10 +299,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   };
 
   const handleUpdateMemberRole = (memberId: UUID, serviceRoleId: UUID | null) => {
-    setDb(prev => ({
-      ...prev,
-      groupMembers: prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, service_role_id: serviceRoleId } : gm)
-    }));
+    setDb(prev => {
+      const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
+      if (!targetMember) return prev;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
+      const roleName = serviceRoleId ? prev.serviceRoles.find(r => r.id === serviceRoleId)?.name : 'ingen spesifikk rolle';
+
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: targetMember.person_id,
+        title: 'Tjenesterolle oppdatert',
+        content: `Din tjenesterolle i gruppen "${group?.name || 'Ukjent'}" er oppdatert til ${roleName}.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return {
+        ...prev,
+        groupMembers: prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, service_role_id: serviceRoleId } : gm),
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
+    });
   };
 
   const handleToggleLeader = (memberId: UUID) => {
@@ -310,7 +328,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
       if (!targetMember) return prev;
       const personId = targetMember.person_id;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
       const isNowLeader = targetMember.role !== GroupRole.LEADER;
+      
       const nextGroupMembers = prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, role: isNowLeader ? GroupRole.LEADER : GroupRole.MEMBER } : gm);
       const nextPersons = prev.persons.map(p => {
         if (p.id === personId) {
@@ -321,7 +341,25 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         }
         return p;
       });
-      return { ...prev, groupMembers: nextGroupMembers, persons: nextPersons };
+
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: personId,
+        title: isNowLeader ? 'Du er nå gruppeleder' : 'Rolle endret i gruppe',
+        content: isNowLeader 
+          ? `Du har blitt utnevnt til gruppeleder for "${group?.name || 'Ukjent'}".`
+          : `Din rolle i "${group?.name || 'Ukjent'}" er endret til medlem.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return { 
+        ...prev, 
+        groupMembers: nextGroupMembers, 
+        persons: nextPersons,
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
     });
   };
 
@@ -330,6 +368,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
       if (!targetMember) return prev;
       const personId = targetMember.person_id;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
       
       const nextGroupMembers = prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, role } : gm);
       
@@ -344,15 +383,47 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         return p;
       });
       
-      return { ...prev, groupMembers: nextGroupMembers, persons: nextPersons };
+      const roleLabel = role === GroupRole.LEADER ? 'Gruppeleder' : role === GroupRole.DEPUTY_LEADER ? 'Nestleder' : 'Medlem';
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: personId,
+        title: 'Rolle endret i gruppe',
+        content: `Din rolle i gruppen "${group?.name || 'Ukjent'}" er endret til ${roleLabel}.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return { 
+        ...prev, 
+        groupMembers: nextGroupMembers, 
+        persons: nextPersons,
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
     });
   };
 
   const handleAddMember = (personId: UUID) => {
     if (!manageGroupId) return;
     if (db.groupMembers.some(gm => gm.group_id === manageGroupId && gm.person_id === personId)) return;
+    const group = db.groups.find(g => g.id === manageGroupId);
     const newMember: GroupMember = { id: crypto.randomUUID(), group_id: manageGroupId, person_id: personId, role: GroupRole.MEMBER };
-    setDb(prev => ({ ...prev, groupMembers: [...prev.groupMembers, newMember] }));
+    
+    const newMessage: NoticeMessage = {
+      id: crypto.randomUUID(),
+      sender_id: 'system',
+      recipient_id: personId,
+      title: 'Lagt til i gruppe',
+      content: `Du har blitt lagt til i gruppen "${group?.name || 'Ukjent'}".`,
+      created_at: new Date().toISOString(),
+      isRead: false
+    };
+
+    setDb(prev => ({ 
+      ...prev, 
+      groupMembers: [...prev.groupMembers, newMember],
+      noticeMessages: [newMessage, ...prev.noticeMessages]
+    }));
   };
 
   const handleRemoveMember = (memberId: UUID) => {
@@ -401,6 +472,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     
     setDb(prev => {
       const newGroupMembers: GroupMember[] = [];
+      const newNotices: NoticeMessage[] = [];
       
       // Legg til leder hvis valgt
       if (newGroupLeaderId) {
@@ -409,6 +481,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
           group_id: newGroupId,
           person_id: newGroupLeaderId,
           role: GroupRole.LEADER
+        });
+
+        newNotices.push({
+          id: crypto.randomUUID(),
+          sender_id: 'system',
+          recipient_id: newGroupLeaderId,
+          title: 'Lagt til i ny gruppe',
+          content: `Du har blitt lagt til som leder i den nye gruppen "${newGroupName.trim()}".`,
+          created_at: new Date().toISOString(),
+          isRead: false
         });
       }
       
@@ -421,13 +503,24 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
             person_id: personId,
             role: GroupRole.MEMBER
           });
+
+          newNotices.push({
+            id: crypto.randomUUID(),
+            sender_id: 'system',
+            recipient_id: personId,
+            title: 'Lagt til i ny gruppe',
+            content: `Du har blitt lagt til i den nye gruppen "${newGroupName.trim()}".`,
+            created_at: new Date().toISOString(),
+            isRead: false
+          });
         }
       });
       
       return {
         ...prev,
         groups: [...prev.groups, newGroup],
-        groupMembers: [...prev.groupMembers, ...newGroupMembers]
+        groupMembers: [...prev.groupMembers, ...newGroupMembers],
+        noticeMessages: [...newNotices, ...prev.noticeMessages]
       };
     });
     
