@@ -15,11 +15,13 @@ interface Props {
   db: AppState;
   currentUser: Person;
   onGoToWheel?: () => void;
+  onLogout: () => void;
   onViewGroup: (groupId: UUID) => void;
 }
 
 // Hjelpefunksjon for å generere avatar URL (samme logikk som i GroupsView)
 const getAvatarUrl = (person: Person): string => {
+  if (person.imageUrl) return person.imageUrl;
   const firstName = person.name.trim().split(/\s+/)[0].toLowerCase();
   const isFemale = ['anne', 'marie', 'kari', 'lise', 'ingrid', 'tone', 'siri', 'elin', 'sara', 'sofie', 'emma', 'nora', 'ida', 'maja', 'ella', 'frida', 'astrid', 'liv', 'thea', 'helen', 'kristin', 'camilla', 'hanna', 'marte', 'silje', 'mari', 'vilde', 'mille', 'tiril', 'beate', 'vigdis'].some(n => firstName.startsWith(n) || firstName.includes(n)) || firstName.endsWith('a') || firstName.endsWith('e');
   const age = person.birth_date ? Math.floor((new Date().getTime() - new Date(person.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
@@ -44,7 +46,7 @@ const getAvatarUrl = (person: Person): string => {
   return `${baseUrl}?${params.join('&')}`;
 };
 
-const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup }) => {
+const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onLogout, onViewGroup }) => {
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<UUID | null>(null);
 
   const myAssignments = useMemo(() => {
@@ -173,12 +175,20 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
           <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Velkommen, {currentUser.name.split(' ')[0]}</h2>
           <p className="text-xs md:text-sm text-slate-500 font-medium hidden md:block">Operativ oversikt over dine ansvarsområder.</p>
         </div>
-        <img 
-          src={getAvatarUrl(currentUser)}
-          alt={`${currentUser.name} avatar`}
-          style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
-          className="border border-slate-200 shrink-0"
-        />
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={onLogout}
+            className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-700 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50 transition-all"
+          >
+            Logg ut
+          </button>
+          <img 
+            src={getAvatarUrl(currentUser)}
+            alt={`${currentUser.name} avatar`}
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+            className="border border-slate-200 shrink-0"
+          />
+        </div>
       </header>
 
       {/* Statistikk-kort - skjult på mobil, synlig på større skjermer */}

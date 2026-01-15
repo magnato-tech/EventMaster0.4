@@ -46,6 +46,7 @@ export interface Person {
   name: string;
   email?: string;
   phone?: string;
+  imageUrl?: string;
   social_security_number?: string;
   birth_year?: number;
   birth_date?: string;

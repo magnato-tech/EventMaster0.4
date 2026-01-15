@@ -3,6 +3,7 @@ import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, Occurre
 import { POPULATED_DATA } from './constants';
 
 const DB_KEY = 'eventmaster_lmk_db';
+const IMAGE_LIBRARY_KEY = 'eventmaster_image_library';
 
 // Hjelpefunksjon for å sanere fødselsdatoer til ISO-format (YYYY-MM-DD)
 const sanitizeBirthDate = (date: string | undefined | null): string | undefined => {
@@ -66,6 +67,20 @@ export const getDB = (): AppState => {
       ...person,
       birth_date: sanitizeBirthDate(person.birth_date)
     }));
+  }
+
+  // Flett inn bilde-URLer fra bildebasen hvis de finnes
+  try {
+    const imageLibraryRaw = localStorage.getItem(IMAGE_LIBRARY_KEY);
+    if (imageLibraryRaw && parsedData.persons) {
+      const imageLibrary = JSON.parse(imageLibraryRaw) as Record<string, string>;
+      parsedData.persons = parsedData.persons.map(person => ({
+        ...person,
+        imageUrl: imageLibrary[person.id] || person.imageUrl
+      }));
+    }
+  } catch (e) {
+    // Ignorer feil og bruk data som normalt
   }
   
   // Sjekk om vi mangler familie-data eller tasks (enten tom array eller undefined)
@@ -133,6 +148,29 @@ export const getDB = (): AppState => {
 
 export const saveDB = (state: AppState) => {
   localStorage.setItem(DB_KEY, JSON.stringify(state));
+};
+
+export const getImageLibrary = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(IMAGE_LIBRARY_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export const saveImageLibraryEntry = (personId: UUID, imageUrl: string) => {
+  const library = getImageLibrary();
+  library[personId] = imageUrl;
+  localStorage.setItem(IMAGE_LIBRARY_KEY, JSON.stringify(library));
+};
+
+export const removeImageLibraryEntry = (personId: UUID) => {
+  const library = getImageLibrary();
+  if (library[personId]) {
+    delete library[personId];
+    localStorage.setItem(IMAGE_LIBRARY_KEY, JSON.stringify(library));
+  }
 };
 
 // Hjelpefunksjon for å resettere til POPULATED_DATA (kan kalles fra konsollen)

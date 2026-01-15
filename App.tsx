@@ -38,6 +38,23 @@ const App: React.FC = () => {
     }
   }, [db]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    const latest = db.persons.find(p => p.id === currentUser.id);
+    if (!latest) return;
+    if (
+      latest.name !== currentUser.name ||
+      latest.email !== currentUser.email ||
+      latest.phone !== currentUser.phone ||
+      latest.imageUrl !== currentUser.imageUrl ||
+      latest.core_role !== currentUser.core_role ||
+      latest.is_admin !== currentUser.is_admin ||
+      latest.is_active !== currentUser.is_active
+    ) {
+      setCurrentUser(latest);
+    }
+  }, [db.persons, currentUser]);
+
   // AUTOMATISK SYNKRONISERING OG VARSLINGSLOGIKK
   const syncStaffingAndNotify = useCallback((occurrenceId: UUID, state: AppState, actor: Person): AppState => {
     const occ = state.eventOccurrences.find(o => o.id === occurrenceId);
@@ -585,7 +602,15 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
-        {activeTab === 'dashboard' && <Dashboard db={db} currentUser={currentUser} onGoToWheel={() => setActiveTab('wheel')} onViewGroup={handleViewGroup} />}
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            db={db}
+            currentUser={currentUser}
+            onGoToWheel={() => setActiveTab('wheel')}
+            onLogout={() => setCurrentUser(null)}
+            onViewGroup={handleViewGroup}
+          />
+        )}
         {activeTab === 'statistics' && <DashboardView db={db} />}
         {activeTab === 'calendar' && (() => {
           const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;

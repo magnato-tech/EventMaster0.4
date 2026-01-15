@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AppState, Group, GroupCategory, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
+import { saveImageLibraryEntry, removeImageLibraryEntry } from '../db';
 import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby } from 'lucide-react';
 
 interface Props {
@@ -18,6 +19,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [activeTab, setActiveTab] = useState<'persons' | 'families' | 'barnekirke' | 'fellowship' | 'service' | 'leadership' | 'roles'>('persons');
   const isScopedLeader = !isAdmin && userLeaderGroups.length > 0;
   const scopedTabs: Array<'barnekirke' | 'fellowship' | 'service' | 'leadership'> = ['barnekirke', 'fellowship', 'service', 'leadership'];
+  const canManageGroup = useCallback((groupId?: UUID | null) => {
+    if (!groupId) return false;
+    return isAdmin || userLeaderGroups.includes(groupId);
+  }, [isAdmin, userLeaderGroups]);
   
   // Modal & View States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -28,6 +33,8 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [viewingRoleId, setViewingRoleId] = useState<UUID | null>(null);
   const [isCreatePersonModalOpen, setIsCreatePersonModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [newPersonImageUrl, setNewPersonImageUrl] = useState('');
+  const [editingPersonImageUrl, setEditingPersonImageUrl] = useState('');
   
   // Familie States
   const [isCreateFamilyModalOpen, setIsCreateFamilyModalOpen] = useState(false);
@@ -160,6 +167,34 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   }, [isAddMemberModalOpen]);
 
   useEffect(() => {
+    if (isCreatePersonModalOpen) {
+      setNewPersonImageUrl('');
+    }
+  }, [isCreatePersonModalOpen]);
+
+  useEffect(() => {
+    if (editingPerson) {
+      setEditingPersonImageUrl(editingPerson.imageUrl || '');
+    } else {
+      setEditingPersonImageUrl('');
+    }
+  }, [editingPerson]);
+
+  const handleImageFileChange = (file: File, setter: (value: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setter(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (manageGroupId && !canManageGroup(manageGroupId)) {
+      setManageGroupId(null);
+      return;
+    }
     if (manageGroupId) {
       const group = db.groups.find(g => g.id === manageGroupId);
       if (group) {
@@ -183,7 +218,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       setEditingGroupLink('');
       setTempPattern(null);
     }
-  }, [manageGroupId, db.groups]);
+  }, [manageGroupId, db.groups, canManageGroup]);
 
   useEffect(() => {
     if (viewingFamilyId) {
@@ -574,6 +609,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     const isAdminOverride = formData.get('is_admin') === 'true';
     const email = (formData.get('email') as string)?.trim() || undefined;
     const phone = (formData.get('phone') as string)?.trim() || undefined;
+    const imageUrlValue = newPersonImageUrl.trim() || undefined;
     const birthDate = (formData.get('birth_date') as string)?.trim() || undefined;
     const streetAddress = (formData.get('streetAddress') as string)?.trim() || undefined;
     const postalCode = (formData.get('postalCode') as string)?.trim() || undefined;
@@ -583,6 +619,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       name: (formData.get('name') as string).trim(), 
       email, 
       phone, 
+      imageUrl: imageUrlValue,
       birth_date: birthDate,
       streetAddress,
       postalCode,
@@ -592,6 +629,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       core_role: CoreRole.MEMBER 
     };
     setDb(prev => ({ ...prev, persons: [...prev.persons, newPerson] }));
+    if (imageUrlValue) {
+      saveImageLibraryEntry(newPerson.id, imageUrlValue);
+    }
     setIsCreatePersonModalOpen(false);
   };
 
@@ -602,6 +642,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     const isAdminOverride = formData.get('is_admin') === 'true';
     const email = (formData.get('email') as string)?.trim() || undefined;
     const phone = (formData.get('phone') as string)?.trim() || undefined;
+    const imageUrlValue = editingPersonImageUrl.trim() || undefined;
     const birthDate = (formData.get('birth_date') as string)?.trim() || undefined;
     const streetAddress = (formData.get('streetAddress') as string)?.trim() || undefined;
     const postalCode = (formData.get('postalCode') as string)?.trim() || undefined;
@@ -611,6 +652,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       name: (formData.get('name') as string).trim(), 
       email, 
       phone, 
+      imageUrl: imageUrlValue,
       birth_date: birthDate,
       streetAddress,
       postalCode,
@@ -618,6 +660,11 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       is_admin: isAdminOverride
     };
     setDb(prev => ({ ...prev, persons: prev.persons.map(p => p.id === editingPerson.id ? updatedPerson : p) }));
+    if (imageUrlValue) {
+      saveImageLibraryEntry(editingPerson.id, imageUrlValue);
+    } else {
+      removeImageLibraryEntry(editingPerson.id);
+    }
     setEditingPerson(null);
   };
 
@@ -1063,6 +1110,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
 
   // Hjelpefunksjon for å generere avatar URL
   const getAvatarUrl = (person: Person): string => {
+    if (person.imageUrl) return person.imageUrl;
     const gender = getGenderFromName(person.name);
     const age = getPersonAge(person);
     const seed = encodeURIComponent(person.name);
@@ -1990,10 +2038,12 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3"><div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">{getIcon(group.category)}</div><h3 className="text-sm font-bold text-slate-900">{group.name}</h3></div>
-                    {isAdmin && (
+                    {canManageGroup(group.id) && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => { e.stopPropagation(); setManageGroupId(group.id); }} className="p-1.5 text-slate-300 hover:text-indigo-600 rounded-md transition-all"><Edit2 size={14} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-md transition-all"><Trash2 size={14} /></button>
+                        {isAdmin && (
+                          <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-md transition-all"><Trash2 size={14} /></button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2387,6 +2437,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 />
               </div>
               <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Bilde-URL</label>
+                <input
+                  name="imageUrl"
+                  type="url"
+                  value={newPersonImageUrl}
+                  onChange={(e) => setNewPersonImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Last opp bilde</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageFileChange(file, setNewPersonImageUrl);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Bildet lagres lokalt og kan brukes i alle visninger.</p>
+              </div>
+              <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Fødselsdato</label>
                 <input
                   name="birth_date"
@@ -2485,6 +2561,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                   placeholder="+47 123 45 678"
                 />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Bilde-URL</label>
+                <input
+                  name="imageUrl"
+                  type="url"
+                  value={editingPersonImageUrl}
+                  onChange={(e) => setEditingPersonImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Last opp bilde</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageFileChange(file, setEditingPersonImageUrl);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Bildet lagres lokalt og kan brukes i alle visninger.</p>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Fødselsdato</label>
@@ -3172,14 +3274,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 <h2 className="text-xl font-bold text-slate-900">{viewedGroup.name}</h2>
               </div>
               <div className="flex items-center gap-2">
-                {isAdmin && (
+                {canManageGroup(viewingGroupId) && (
                   <>
                     <button onClick={() => { setManageGroupId(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Rediger">
                       <Edit2 size={20} className="text-slate-600" />
                     </button>
-                    <button onClick={() => { setIsDeletingGroup(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Slett">
-                      <Trash2 size={20} className="text-slate-600" />
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => { setIsDeletingGroup(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Slett">
+                        <Trash2 size={20} className="text-slate-600" />
+                      </button>
+                    )}
                   </>
                 )}
                 <button onClick={() => setViewingGroupId(null)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
