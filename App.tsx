@@ -530,6 +530,10 @@ const App: React.FC = () => {
   }
 
   const canSeeMessages = currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR || currentUser.core_role === CoreRole.TEAM_LEADER;
+  const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+  const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
+  const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
+  const canManageGroups = currentUser.is_admin || isGroupLeader || isDeputyLeader;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-left">
@@ -544,7 +548,7 @@ const App: React.FC = () => {
             <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
           )}
           <NavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-          {currentUser.is_admin && (
+          {canManageGroups && (
             <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
           )}
           <NavItem 
@@ -584,10 +588,6 @@ const App: React.FC = () => {
         {activeTab === 'dashboard' && <Dashboard db={db} currentUser={currentUser} onGoToWheel={() => setActiveTab('wheel')} onViewGroup={handleViewGroup} />}
         {activeTab === 'statistics' && <DashboardView db={db} />}
         {activeTab === 'calendar' && (() => {
-          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
-          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
-          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
-          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
           const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
           
           return (
@@ -611,19 +611,16 @@ const App: React.FC = () => {
           );
         })()}
         {activeTab === 'groups' && (() => {
-          // Kun admins har tilgang til medlemsregisteret
-          if (!currentUser.is_admin) {
+          if (!canManageGroups) {
             return (
               <div className="p-8 text-center text-slate-500">
                 <Shield size={48} className="mx-auto mb-4 text-slate-300" />
                 <h3 className="text-xl font-bold mb-2">Tilgang nektet</h3>
-                <p className="text-sm">Medlemsregisteret er kun tilgjengelig for administratorer.</p>
+                <p className="text-sm">Du har ikke tilgang til medlemsregisteret.</p>
               </div>
             );
           }
           
-          // For admins: Finn hvilke grupper de er leder/nestleder i (for scoped access)
-          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
           const userLeaderGroups = userGroupMemberships
             .filter(gm => gm.role === GroupRole.LEADER || gm.role === GroupRole.DEPUTY_LEADER)
             .map(gm => gm.group_id);
@@ -636,8 +633,8 @@ const App: React.FC = () => {
               currentUserId={currentUser.id}
               userLeaderGroups={userLeaderGroups}
               initialViewGroupId={initialGroupId} 
-              initialPersonId={initialPersonId} 
-              onViewPerson={handleViewPerson} 
+              initialPersonId={currentUser.is_admin ? initialPersonId : null} 
+              onViewPerson={currentUser.is_admin ? handleViewPerson : undefined} 
             />
           );
         })()}
@@ -674,7 +671,7 @@ const App: React.FC = () => {
           <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
         )}
         <MobileNavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-        {currentUser.is_admin && (
+        {canManageGroups && (
           <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
         )}
         <MobileNavItem 

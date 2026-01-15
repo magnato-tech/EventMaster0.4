@@ -16,6 +16,8 @@ interface Props {
 
 const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLeaderGroups = [], initialViewGroupId, initialPersonId, onViewPerson }) => {
   const [activeTab, setActiveTab] = useState<'persons' | 'families' | 'barnekirke' | 'fellowship' | 'service' | 'leadership' | 'roles'>('persons');
+  const isScopedLeader = !isAdmin && userLeaderGroups.length > 0;
+  const scopedTabs: Array<'barnekirke' | 'fellowship' | 'service' | 'leadership'> = ['barnekirke', 'fellowship', 'service', 'leadership'];
   
   // Modal & View States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -105,10 +107,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const selectedPerson = db.persons.find(p => p.id === selectedPersonId);
 
   useEffect(() => {
-    if (initialViewGroupId) {
-      setViewingGroupId(initialViewGroupId);
+    if (!initialViewGroupId) return;
+    setViewingGroupId(initialViewGroupId);
+    const group = db.groups.find(g => g.id === initialViewGroupId);
+    if (group && isScopedLeader) {
+      if (group.category === GroupCategory.BARNKIRKE) setActiveTab('barnekirke');
+      if (group.category === GroupCategory.FELLOWSHIP) setActiveTab('fellowship');
+      if (group.category === GroupCategory.SERVICE) setActiveTab('service');
+      if (group.category === GroupCategory.STRATEGY) setActiveTab('leadership');
     }
-  }, [initialViewGroupId]);
+  }, [initialViewGroupId, db.groups, isScopedLeader]);
 
   // Nullstill selectedPersonId ved mount hvis initialPersonId ikke er satt
   useEffect(() => {
@@ -118,6 +126,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   }, []); // Kjør kun ved mount
 
   useEffect(() => {
+    if (!isAdmin) return;
     if (initialPersonId) {
       setSelectedPersonId(initialPersonId);
       setActiveTab('persons');
@@ -126,7 +135,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       // Dette sikrer at personkortet ikke åpnes automatisk når fanen byttes
       setSelectedPersonId(null);
     }
-  }, [initialPersonId]);
+  }, [initialPersonId, isAdmin]);
+
+  useEffect(() => {
+    if (!isScopedLeader) return;
+    if (!scopedTabs.includes(activeTab as any)) {
+      setActiveTab(scopedTabs[0]);
+    }
+  }, [activeTab, isScopedLeader, scopedTabs]);
 
   // Reset form state når "Legg til medlem"-modalen åpnes
   useEffect(() => {
@@ -1292,11 +1308,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       {/* Precision Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Folk</h2>
-          <p className="text-sm text-slate-500">Administrasjon av personer, familier, grupper og roller.</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{isScopedLeader ? 'Mine grupper' : 'Folk'}</h2>
+          <p className="text-sm text-slate-500">{isScopedLeader ? 'Oversikt over grupper du leder eller er nestleder for.' : 'Administrasjon av personer, familier, grupper og roller.'}</p>
         </div>
         <div className="inline-flex bg-slate-200/60 p-1 rounded-lg flex-wrap gap-1">
-          {(['persons', 'families', 'barnekirke', 'fellowship', 'service', 'leadership', 'roles'] as const).map(tab => (
+          {(isScopedLeader
+            ? (['barnekirke', 'fellowship', 'service', 'leadership'] as const)
+            : (['persons', 'families', 'barnekirke', 'fellowship', 'service', 'leadership', 'roles'] as const)
+          ).map(tab => (
             <button 
               key={tab}
               onClick={() => { setActiveTab(tab); setSelectedPersonId(null); }} 
