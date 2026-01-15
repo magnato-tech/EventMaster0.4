@@ -422,6 +422,7 @@ const App: React.FC = () => {
 
   const handleIdentitySelect = (person: Person) => {
     setCurrentUser(person);
+    setActiveTab('dashboard');
   };
   
   const handleViewGroup = (groupId: UUID) => {
@@ -526,10 +527,14 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex-1 px-4 space-y-1 py-2">
-          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min Vaktliste" />
-          <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min side" />
+          {currentUser.is_admin && (
+            <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+          )}
           <NavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-          <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+          {currentUser.is_admin && (
+            <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+          )}
           {canSeeMessages && (
             <NavItem 
               active={activeTab === 'messages'} 
@@ -541,7 +546,9 @@ const App: React.FC = () => {
               label="Oppslag & Dialog" 
             />
           )}
-          <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+          {currentUser.is_admin && (
+            <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+          )}
           {currentUser.is_admin && (
             <NavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master-oppsett" />
           )}
@@ -640,10 +647,14 @@ const App: React.FC = () => {
       </main>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 px-1 z-50 shadow-2xl">
-        <MobileNavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Vakter" />
-        <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+        <MobileNavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min side" />
+        {currentUser.is_admin && (
+          <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
+        )}
         <MobileNavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-        <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+        {currentUser.is_admin && (
+          <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+        )}
         {canSeeMessages && (
           <MobileNavItem 
             active={activeTab === 'messages'} 
@@ -655,7 +666,9 @@ const App: React.FC = () => {
             label="Melding" 
           />
         )}
-        <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+        {currentUser.is_admin && (
+          <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+        )}
         {currentUser.is_admin && (
           <MobileNavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master" />
         )}

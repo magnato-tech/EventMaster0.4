@@ -243,7 +243,7 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
               <h3 className="text-sm font-bold flex items-center gap-2 text-slate-800">
-                <Calendar className="text-indigo-600" size={18} /> Planlagte vakter
+                <Calendar className="text-indigo-600" size={18} /> Mine Oppgaver
               </h3>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight bg-slate-100 px-2 py-0.5 rounded">{uniqueInvolvedEvents.length} arrangementer</span>
             </div>
