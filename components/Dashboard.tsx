@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { AppState, Person, GroupCategory, ServiceRole, Assignment, UUID, EventOccurrence, Task, ProgramItem } from '../types';
+import { AppState, Person, GroupCategory, Assignment, UUID, EventOccurrence, Task, ProgramItem } from '../types';
 import { Calendar, Users, Bell, ArrowRight, X, CheckCircle2, Shield, Clock, AlertCircle, ListChecks, ChevronRight, ArrowUp } from 'lucide-react';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
@@ -15,11 +15,13 @@ interface Props {
   db: AppState;
   currentUser: Person;
   onGoToWheel?: () => void;
+  onLogout: () => void;
   onViewGroup: (groupId: UUID) => void;
 }
 
 // Hjelpefunksjon for å generere avatar URL (samme logikk som i GroupsView)
 const getAvatarUrl = (person: Person): string => {
+  if (person.imageUrl) return person.imageUrl;
   const firstName = person.name.trim().split(/\s+/)[0].toLowerCase();
   const isFemale = ['anne', 'marie', 'kari', 'lise', 'ingrid', 'tone', 'siri', 'elin', 'sara', 'sofie', 'emma', 'nora', 'ida', 'maja', 'ella', 'frida', 'astrid', 'liv', 'thea', 'helen', 'kristin', 'camilla', 'hanna', 'marte', 'silje', 'mari', 'vilde', 'mille', 'tiril', 'beate', 'vigdis'].some(n => firstName.startsWith(n) || firstName.includes(n)) || firstName.endsWith('a') || firstName.endsWith('e');
   const age = person.birth_date ? Math.floor((new Date().getTime() - new Date(person.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
@@ -44,7 +46,7 @@ const getAvatarUrl = (person: Person): string => {
   return `${baseUrl}?${params.join('&')}`;
 };
 
-const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup }) => {
+const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onLogout, onViewGroup }) => {
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<UUID | null>(null);
 
   const myAssignments = useMemo(() => {
@@ -80,6 +82,18 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
       })
       .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
   }, [db.tasks, db.eventOccurrences, currentUser.id]);
+
+  // Filtrer tasks til inneværende måned
+  const currentMonthTasks = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    return myTasks.filter(task => {
+      const taskDate = new Date(task.deadline);
+      return taskDate.getFullYear() === currentYear && taskDate.getMonth() === currentMonth;
+    });
+  }, [myTasks]);
 
   const uniqueInvolvedEvents = useMemo(() => {
     const ids = new Set([
@@ -156,21 +170,29 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-20 md:pb-8 animate-in fade-in duration-300 text-left">
-      <header className="border-b border-slate-200 pb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Velkommen, {currentUser.name.split(' ')[0]}</h2>
-          <p className="text-sm text-slate-500 font-medium">Operativ oversikt over dine ansvarsområder.</p>
+      <header className="border-b border-slate-200 pb-4 md:pb-4 flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Velkommen, {currentUser.name.split(' ')[0]}</h2>
+          <p className="text-xs md:text-sm text-slate-500 font-medium hidden md:block">Operativ oversikt over dine ansvarsområder.</p>
         </div>
-        <img 
-          src={getAvatarUrl(currentUser)}
-          alt={`${currentUser.name} avatar`}
-          style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
-          className="border border-slate-200"
-        />
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={onLogout}
+            className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-700 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50 transition-all"
+          >
+            Logg ut
+          </button>
+          <img 
+            src={getAvatarUrl(currentUser)}
+            alt={`${currentUser.name} avatar`}
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+            className="border border-slate-200 shrink-0"
+          />
+        </div>
       </header>
 
-      {/* Statistikk-kort */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Statistikk-kort - skjult på mobil, synlig på større skjermer */}
+      <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Kort 1: Totalen */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="text-3xl font-bold text-slate-900 mb-1">{stats.totalPersons}</div>
@@ -199,13 +221,39 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
         </div>
       </div>
 
+      {/* Mobil layout: Frister først, deretter vakter */}
+      {currentMonthTasks.length > 0 && (
+        <div className="flex flex-col md:hidden space-y-4 mb-6">
+          {/* Viktige frister - først på mobil */}
+          <section className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-amber-200/50 flex items-center gap-2 bg-white/50">
+              <Bell className="text-amber-600" size={18} />
+              <h3 className="text-sm font-bold text-amber-900">Viktige frister denne måneden</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {currentMonthTasks.map(task => (
+                <div key={task.id} className="bg-white/60 p-3 rounded-lg border border-amber-200/50 hover:border-amber-400 hover:bg-white transition-all group">
+                  <p className="text-xs font-bold text-slate-900 mb-1 group-hover:text-amber-700 transition-colors">{task.title}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] font-medium text-slate-600 flex items-center gap-1">
+                      <Clock size={10} /> {new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'short' }).format(new Date(task.deadline))}
+                    </span>
+                    {task.occurrence && <span className="text-[9px] font-bold text-amber-700 uppercase tracking-tighter">{task.occurrence.title_override}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Hovedfelt: Arrangementer */}
         <div className="lg:col-span-8 space-y-6">
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
               <h3 className="text-sm font-bold flex items-center gap-2 text-slate-800">
-                <Calendar className="text-indigo-600" size={18} /> Planlagte vakter
+                <Calendar className="text-indigo-600" size={18} /> Mine Oppgaver
               </h3>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight bg-slate-100 px-2 py-0.5 rounded">{uniqueInvolvedEvents.length} arrangementer</span>
             </div>
@@ -228,20 +276,20 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
                 const uniqueRolesArray = Array.from(uniqueRoles.values());
                 
                 return (
-                  <button key={occ.id} onClick={() => setSelectedOccurrenceId(occ.id)} className="w-full text-left p-4 hover:bg-slate-50 transition-all flex items-center justify-between group">
+                  <button key={occ.id} onClick={() => setSelectedOccurrenceId(occ.id)} className="w-full text-left p-4 md:p-4 py-5 md:py-4 hover:bg-slate-50 active:bg-slate-100 transition-all flex items-center justify-between group touch-manipulation">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex flex-col items-center justify-center text-slate-600 border border-slate-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors shrink-0">
+                      <div className="w-14 h-14 md:w-12 md:h-12 bg-slate-100 rounded-lg flex flex-col items-center justify-center text-slate-600 border border-slate-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors shrink-0">
                         <span className="text-[9px] font-bold uppercase leading-none mb-0.5">{new Intl.DateTimeFormat('no-NO', { month: 'short' }).format(parseLocalDate(occ.date))}</span>
-                        <span className="text-lg font-bold leading-none">{parseLocalDate(occ.date).getDate()}</span>
+                        <span className="text-xl md:text-lg font-bold leading-none">{parseLocalDate(occ.date).getDate()}</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-slate-900 text-sm tracking-tight truncate mb-1.5">{occ.title_override || db.eventTemplates.find(t => t.id === occ.template_id)?.title}</h4>
+                        <h4 className="font-bold text-slate-900 text-base md:text-sm tracking-tight mb-2 md:mb-1.5">{occ.title_override || db.eventTemplates.find(t => t.id === occ.template_id)?.title}</h4>
                         {/* Unike roller først */}
                         {uniqueRolesArray.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             {uniqueRolesArray.map(a => (
-                              <span key={`role-${occ.id}-${a.role?.id}`} className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded flex items-center gap-1">
-                                <Shield size={10} /> {a.role?.name || 'Vakt'}
+                              <span key={`role-${occ.id}-${a.role?.id}`} className="text-[10px] md:text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 md:px-2 py-1 md:py-0.5 rounded flex items-center gap-1">
+                                <Shield size={11} className="md:w-[10px] md:h-[10px]" /> {a.role?.name || 'Vakt'}
                               </span>
                             ))}
                           </div>
@@ -250,15 +298,15 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
                         {myProgramPosts.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2">
                             {myProgramPosts.map(p => (
-                              <span key={p.id} className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                                <CheckCircle2 size={10} /> {p.title}
+                              <span key={p.id} className="text-[10px] md:text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 md:px-2 py-1 md:py-0.5 rounded flex items-center gap-1">
+                                <CheckCircle2 size={11} className="md:w-[10px] md:h-[10px]" /> {p.title}
                               </span>
                             ))}
                           </div>
                         )}
                       </div>
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0 ml-2" />
+                    <ChevronRight size={18} className="md:w-4 md:h-4 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0 ml-2" />
                   </button>
                 );
               }) : (
@@ -275,17 +323,17 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
               <Users className="text-slate-400" size={18} />
               <h3 className="text-sm font-bold text-slate-800">Mine grupper</h3>
             </div>
-            <div className="p-2 space-y-1">
+            <div className="p-2 md:p-2 space-y-2 md:space-y-1">
               {db.groupMembers.filter(gm => gm.person_id === currentUser.id).map(gm => {
                 const group = db.groups.find(g => g.id === gm.group_id);
                 if (!group) return null;
                 return (
-                  <button key={group.id} onClick={() => onViewGroup(group.id)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-all flex items-center justify-between group">
+                  <button key={group.id} onClick={() => onViewGroup(group.id)} className="w-full text-left px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-all flex items-center justify-between group touch-manipulation">
                     <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${group.category === GroupCategory.SERVICE ? 'bg-indigo-500' : 'bg-teal-500'}`}></div>
-                      <span className="text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{group.name}</span>
+                      <div className={`w-2.5 h-2.5 md:w-2 md:h-2 rounded-full ${group.category === GroupCategory.SERVICE ? 'bg-indigo-500' : 'bg-teal-500'}`}></div>
+                      <span className="text-sm md:text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{group.name}</span>
                     </div>
-                    <ChevronRight size={14} className="text-slate-300 opacity-0 group-hover:opacity-100" />
+                    <ChevronRight size={16} className="md:w-[14px] md:h-[14px] text-slate-300 md:opacity-0 group-hover:opacity-100" />
                   </button>
                 );
               })}
@@ -293,35 +341,35 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onViewGroup 
           </section>
         </div>
 
-        {/* Sidepanel: Frister */}
-        <div className="lg:col-span-4 space-y-6">
-          <section className="bg-slate-900 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2">
-              <Bell className="text-indigo-400" size={18} />
-              <h3 className="text-sm font-bold text-white">Viktige frister</h3>
-            </div>
-            <div className="p-4 space-y-3">
-              {myTasks.length > 0 ? myTasks.map(task => (
-                <div key={task.id} className="bg-slate-800/40 p-3 rounded-lg border border-slate-700 hover:border-indigo-500/30 transition-all group">
-                  <p className="text-xs font-bold text-white mb-1 group-hover:text-indigo-300 transition-colors">{task.title}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
-                      <Clock size={10} /> {new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'short' }).format(new Date(task.deadline))}
-                    </span>
-                    {task.occurrence && <span className="text-[9px] font-bold text-indigo-400/80 uppercase tracking-tighter">{task.occurrence.title_override}</span>}
+        {/* Sidepanel: Frister - skjult på mobil, synlig på større skjermer */}
+        {currentMonthTasks.length > 0 && (
+          <div className="hidden md:block lg:col-span-4 space-y-6">
+            <section className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-amber-200/50 flex items-center gap-2 bg-white/50">
+                <Bell className="text-amber-600" size={18} />
+                <h3 className="text-sm font-bold text-amber-900">Viktige frister denne måneden</h3>
+              </div>
+              <div className="p-4 space-y-3">
+                {currentMonthTasks.map(task => (
+                  <div key={task.id} className="bg-white/60 p-3 rounded-lg border border-amber-200/50 hover:border-amber-400 hover:bg-white transition-all group">
+                    <p className="text-xs font-bold text-slate-900 mb-1 group-hover:text-amber-700 transition-colors">{task.title}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-[10px] font-medium text-slate-600 flex items-center gap-1">
+                        <Clock size={10} /> {new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'short' }).format(new Date(task.deadline))}
+                      </span>
+                      {task.occurrence && <span className="text-[9px] font-bold text-amber-700 uppercase tracking-tighter">{task.occurrence.title_override}</span>}
+                    </div>
                   </div>
-                </div>
-              )) : (
-                <p className="text-center py-4 text-xs text-slate-500">Ingen utestående frister.</p>
-              )}
-              {onGoToWheel && (
-                <button onClick={onGoToWheel} className="w-full mt-2 py-2 text-[10px] font-bold text-indigo-400 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-                  Vis årshjul <ArrowRight size={12} />
-                </button>
-              )}
-            </div>
-          </section>
-        </div>
+                ))}
+                {onGoToWheel && (
+                  <button onClick={onGoToWheel} className="w-full mt-2 py-2 text-[10px] font-bold text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-100 transition-all flex items-center justify-center gap-2">
+                    Vis årshjul <ArrowRight size={12} />
+                  </button>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
       </div>
 
       {/* Detalj-Modal: Enterprise Layout */}

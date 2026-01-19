@@ -1,19 +1,28 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AppState, Group, GroupCategory, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
+import { saveImageLibraryEntry, removeImageLibraryEntry } from '../db';
 import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby } from 'lucide-react';
 
 interface Props {
   db: AppState;
   setDb: React.Dispatch<React.SetStateAction<AppState>>;
   isAdmin: boolean;
+  currentUserId?: UUID;
+  userLeaderGroups?: UUID[]; // Grupper hvor brukeren er leder/nestleder
   initialViewGroupId?: UUID | null;
   initialPersonId?: UUID | null;
   onViewPerson?: (personId: UUID) => void;
 }
 
-const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, initialPersonId, onViewPerson }) => {
+const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLeaderGroups = [], initialViewGroupId, initialPersonId, onViewPerson }) => {
   const [activeTab, setActiveTab] = useState<'persons' | 'families' | 'barnekirke' | 'fellowship' | 'service' | 'leadership' | 'roles'>('persons');
+  const isScopedLeader = !isAdmin && userLeaderGroups.length > 0;
+  const scopedTabs: Array<'barnekirke' | 'fellowship' | 'service' | 'leadership'> = ['barnekirke', 'fellowship', 'service', 'leadership'];
+  const canManageGroup = useCallback((groupId?: UUID | null) => {
+    if (!groupId) return false;
+    return isAdmin || userLeaderGroups.includes(groupId);
+  }, [isAdmin, userLeaderGroups]);
   
   // Modal & View States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -24,6 +33,8 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   const [viewingRoleId, setViewingRoleId] = useState<UUID | null>(null);
   const [isCreatePersonModalOpen, setIsCreatePersonModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [newPersonImageUrl, setNewPersonImageUrl] = useState('');
+  const [editingPersonImageUrl, setEditingPersonImageUrl] = useState('');
   
   // Familie States
   const [isCreateFamilyModalOpen, setIsCreateFamilyModalOpen] = useState(false);
@@ -84,22 +95,35 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const filteredGroups = useMemo(() => {
-    if (activeTab === 'barnekirke') return db.groups.filter(g => g.category === GroupCategory.BARNKIRKE);
-    if (activeTab === 'service') return db.groups.filter(g => g.category === GroupCategory.SERVICE);
-    if (activeTab === 'fellowship') return db.groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
-    if (activeTab === 'leadership') return db.groups.filter(g => g.category === GroupCategory.STRATEGY);
+    let groups = db.groups;
+    
+    // Scoped Access: Hvis brukeren ikke er admin, vis kun grupper de leder
+    if (!isAdmin && userLeaderGroups.length > 0) {
+      groups = groups.filter(g => userLeaderGroups.includes(g.id));
+    }
+    
+    if (activeTab === 'barnekirke') return groups.filter(g => g.category === GroupCategory.BARNKIRKE);
+    if (activeTab === 'service') return groups.filter(g => g.category === GroupCategory.SERVICE);
+    if (activeTab === 'fellowship') return groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
+    if (activeTab === 'leadership') return groups.filter(g => g.category === GroupCategory.STRATEGY);
     return [];
-  }, [db.groups, activeTab]);
+  }, [db.groups, activeTab, isAdmin, userLeaderGroups]);
   const managedGroup = db.groups.find(g => g.id === manageGroupId);
   const viewedGroup = db.groups.find(g => g.id === viewingGroupId);
   const viewedRole = db.serviceRoles.find(r => r.id === viewingRoleId);
   const selectedPerson = db.persons.find(p => p.id === selectedPersonId);
 
   useEffect(() => {
-    if (initialViewGroupId) {
-      setViewingGroupId(initialViewGroupId);
+    if (!initialViewGroupId) return;
+    setViewingGroupId(initialViewGroupId);
+    const group = db.groups.find(g => g.id === initialViewGroupId);
+    if (group && isScopedLeader) {
+      if (group.category === GroupCategory.BARNKIRKE) setActiveTab('barnekirke');
+      if (group.category === GroupCategory.FELLOWSHIP) setActiveTab('fellowship');
+      if (group.category === GroupCategory.SERVICE) setActiveTab('service');
+      if (group.category === GroupCategory.STRATEGY) setActiveTab('leadership');
     }
-  }, [initialViewGroupId]);
+  }, [initialViewGroupId, db.groups, isScopedLeader]);
 
   // Nullstill selectedPersonId ved mount hvis initialPersonId ikke er satt
   useEffect(() => {
@@ -109,6 +133,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   }, []); // Kjør kun ved mount
 
   useEffect(() => {
+    if (!isAdmin) return;
     if (initialPersonId) {
       setSelectedPersonId(initialPersonId);
       setActiveTab('persons');
@@ -117,7 +142,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       // Dette sikrer at personkortet ikke åpnes automatisk når fanen byttes
       setSelectedPersonId(null);
     }
-  }, [initialPersonId]);
+  }, [initialPersonId, isAdmin]);
+
+  useEffect(() => {
+    if (!isScopedLeader) return;
+    if (!scopedTabs.includes(activeTab as any)) {
+      setActiveTab(scopedTabs[0]);
+    }
+  }, [activeTab, isScopedLeader, scopedTabs]);
 
   // Reset form state når "Legg til medlem"-modalen åpnes
   useEffect(() => {
@@ -135,6 +167,34 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   }, [isAddMemberModalOpen]);
 
   useEffect(() => {
+    if (isCreatePersonModalOpen) {
+      setNewPersonImageUrl('');
+    }
+  }, [isCreatePersonModalOpen]);
+
+  useEffect(() => {
+    if (editingPerson) {
+      setEditingPersonImageUrl(editingPerson.imageUrl || '');
+    } else {
+      setEditingPersonImageUrl('');
+    }
+  }, [editingPerson]);
+
+  const handleImageFileChange = (file: File, setter: (value: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setter(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (manageGroupId && !canManageGroup(manageGroupId)) {
+      setManageGroupId(null);
+      return;
+    }
     if (manageGroupId) {
       const group = db.groups.find(g => g.id === manageGroupId);
       if (group) {
@@ -158,7 +218,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       setEditingGroupLink('');
       setTempPattern(null);
     }
-  }, [manageGroupId, db.groups]);
+  }, [manageGroupId, db.groups, canManageGroup]);
 
   useEffect(() => {
     if (viewingFamilyId) {
@@ -290,10 +350,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   };
 
   const handleUpdateMemberRole = (memberId: UUID, serviceRoleId: UUID | null) => {
-    setDb(prev => ({
-      ...prev,
-      groupMembers: prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, service_role_id: serviceRoleId } : gm)
-    }));
+    setDb(prev => {
+      const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
+      if (!targetMember) return prev;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
+      const roleName = serviceRoleId ? prev.serviceRoles.find(r => r.id === serviceRoleId)?.name : 'ingen spesifikk rolle';
+
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: targetMember.person_id,
+        title: 'Tjenesterolle oppdatert',
+        content: `Din tjenesterolle i gruppen "${group?.name || 'Ukjent'}" er oppdatert til ${roleName}.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return {
+        ...prev,
+        groupMembers: prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, service_role_id: serviceRoleId } : gm),
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
+    });
   };
 
   const handleToggleLeader = (memberId: UUID) => {
@@ -301,7 +379,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
       if (!targetMember) return prev;
       const personId = targetMember.person_id;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
       const isNowLeader = targetMember.role !== GroupRole.LEADER;
+      
       const nextGroupMembers = prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, role: isNowLeader ? GroupRole.LEADER : GroupRole.MEMBER } : gm);
       const nextPersons = prev.persons.map(p => {
         if (p.id === personId) {
@@ -312,7 +392,25 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
         }
         return p;
       });
-      return { ...prev, groupMembers: nextGroupMembers, persons: nextPersons };
+
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: personId,
+        title: isNowLeader ? 'Du er nå gruppeleder' : 'Rolle endret i gruppe',
+        content: isNowLeader 
+          ? `Du har blitt utnevnt til gruppeleder for "${group?.name || 'Ukjent'}".`
+          : `Din rolle i "${group?.name || 'Ukjent'}" er endret til medlem.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return { 
+        ...prev, 
+        groupMembers: nextGroupMembers, 
+        persons: nextPersons,
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
     });
   };
 
@@ -321,6 +419,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       const targetMember = prev.groupMembers.find(gm => gm.id === memberId);
       if (!targetMember) return prev;
       const personId = targetMember.person_id;
+      const group = prev.groups.find(g => g.id === targetMember.group_id);
       
       const nextGroupMembers = prev.groupMembers.map(gm => gm.id === memberId ? { ...gm, role } : gm);
       
@@ -335,15 +434,47 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
         return p;
       });
       
-      return { ...prev, groupMembers: nextGroupMembers, persons: nextPersons };
+      const roleLabel = role === GroupRole.LEADER ? 'Gruppeleder' : role === GroupRole.DEPUTY_LEADER ? 'Nestleder' : 'Medlem';
+      const newMessage: NoticeMessage = {
+        id: crypto.randomUUID(),
+        sender_id: 'system',
+        recipient_id: personId,
+        title: 'Rolle endret i gruppe',
+        content: `Din rolle i gruppen "${group?.name || 'Ukjent'}" er endret til ${roleLabel}.`,
+        created_at: new Date().toISOString(),
+        isRead: false
+      };
+
+      return { 
+        ...prev, 
+        groupMembers: nextGroupMembers, 
+        persons: nextPersons,
+        noticeMessages: [newMessage, ...prev.noticeMessages]
+      };
     });
   };
 
   const handleAddMember = (personId: UUID) => {
     if (!manageGroupId) return;
     if (db.groupMembers.some(gm => gm.group_id === manageGroupId && gm.person_id === personId)) return;
+    const group = db.groups.find(g => g.id === manageGroupId);
     const newMember: GroupMember = { id: crypto.randomUUID(), group_id: manageGroupId, person_id: personId, role: GroupRole.MEMBER };
-    setDb(prev => ({ ...prev, groupMembers: [...prev.groupMembers, newMember] }));
+    
+    const newMessage: NoticeMessage = {
+      id: crypto.randomUUID(),
+      sender_id: 'system',
+      recipient_id: personId,
+      title: 'Lagt til i gruppe',
+      content: `Du har blitt lagt til i gruppen "${group?.name || 'Ukjent'}".`,
+      created_at: new Date().toISOString(),
+      isRead: false
+    };
+
+    setDb(prev => ({ 
+      ...prev, 
+      groupMembers: [...prev.groupMembers, newMember],
+      noticeMessages: [newMessage, ...prev.noticeMessages]
+    }));
   };
 
   const handleRemoveMember = (memberId: UUID) => {
@@ -392,6 +523,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
     
     setDb(prev => {
       const newGroupMembers: GroupMember[] = [];
+      const newNotices: NoticeMessage[] = [];
       
       // Legg til leder hvis valgt
       if (newGroupLeaderId) {
@@ -400,6 +532,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
           group_id: newGroupId,
           person_id: newGroupLeaderId,
           role: GroupRole.LEADER
+        });
+
+        newNotices.push({
+          id: crypto.randomUUID(),
+          sender_id: 'system',
+          recipient_id: newGroupLeaderId,
+          title: 'Lagt til i ny gruppe',
+          content: `Du har blitt lagt til som leder i den nye gruppen "${newGroupName.trim()}".`,
+          created_at: new Date().toISOString(),
+          isRead: false
         });
       }
       
@@ -412,13 +554,24 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
             person_id: personId,
             role: GroupRole.MEMBER
           });
+
+          newNotices.push({
+            id: crypto.randomUUID(),
+            sender_id: 'system',
+            recipient_id: personId,
+            title: 'Lagt til i ny gruppe',
+            content: `Du har blitt lagt til i den nye gruppen "${newGroupName.trim()}".`,
+            created_at: new Date().toISOString(),
+            isRead: false
+          });
         }
       });
       
       return {
         ...prev,
         groups: [...prev.groups, newGroup],
-        groupMembers: [...prev.groupMembers, ...newGroupMembers]
+        groupMembers: [...prev.groupMembers, ...newGroupMembers],
+        noticeMessages: [...newNotices, ...prev.noticeMessages]
       };
     });
     
@@ -456,6 +609,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
     const isAdminOverride = formData.get('is_admin') === 'true';
     const email = (formData.get('email') as string)?.trim() || undefined;
     const phone = (formData.get('phone') as string)?.trim() || undefined;
+    const imageUrlValue = newPersonImageUrl.trim() || undefined;
     const birthDate = (formData.get('birth_date') as string)?.trim() || undefined;
     const streetAddress = (formData.get('streetAddress') as string)?.trim() || undefined;
     const postalCode = (formData.get('postalCode') as string)?.trim() || undefined;
@@ -465,6 +619,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       name: (formData.get('name') as string).trim(), 
       email, 
       phone, 
+      imageUrl: imageUrlValue,
       birth_date: birthDate,
       streetAddress,
       postalCode,
@@ -474,6 +629,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       core_role: CoreRole.MEMBER 
     };
     setDb(prev => ({ ...prev, persons: [...prev.persons, newPerson] }));
+    if (imageUrlValue) {
+      saveImageLibraryEntry(newPerson.id, imageUrlValue);
+    }
     setIsCreatePersonModalOpen(false);
   };
 
@@ -484,6 +642,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
     const isAdminOverride = formData.get('is_admin') === 'true';
     const email = (formData.get('email') as string)?.trim() || undefined;
     const phone = (formData.get('phone') as string)?.trim() || undefined;
+    const imageUrlValue = editingPersonImageUrl.trim() || undefined;
     const birthDate = (formData.get('birth_date') as string)?.trim() || undefined;
     const streetAddress = (formData.get('streetAddress') as string)?.trim() || undefined;
     const postalCode = (formData.get('postalCode') as string)?.trim() || undefined;
@@ -493,6 +652,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       name: (formData.get('name') as string).trim(), 
       email, 
       phone, 
+      imageUrl: imageUrlValue,
       birth_date: birthDate,
       streetAddress,
       postalCode,
@@ -500,6 +660,11 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       is_admin: isAdminOverride
     };
     setDb(prev => ({ ...prev, persons: prev.persons.map(p => p.id === editingPerson.id ? updatedPerson : p) }));
+    if (imageUrlValue) {
+      saveImageLibraryEntry(editingPerson.id, imageUrlValue);
+    } else {
+      removeImageLibraryEntry(editingPerson.id);
+    }
     setEditingPerson(null);
   };
 
@@ -945,6 +1110,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
 
   // Hjelpefunksjon for å generere avatar URL
   const getAvatarUrl = (person: Person): string => {
+    if (person.imageUrl) return person.imageUrl;
     const gender = getGenderFromName(person.name);
     const age = getPersonAge(person);
     const seed = encodeURIComponent(person.name);
@@ -1095,7 +1261,23 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
   }, [db.persons, getPersonRole]);
 
   const filteredPersons = useMemo(() => {
+    // Scoped Access: Hvis brukeren ikke er admin, vis kun medlemmer fra gruppene de leder
+    let accessiblePersonIds: Set<UUID> | null = null;
+    if (!isAdmin && currentUserId && userLeaderGroups.length > 0) {
+      // Finn alle person-IDer som er medlemmer i brukerens grupper
+      accessiblePersonIds = new Set(
+        db.groupMembers
+          .filter(gm => userLeaderGroups.includes(gm.group_id))
+          .map(gm => gm.person_id)
+      );
+    }
+    
     let filtered = db.persons.filter(p => {
+      // Scoped Access: Hvis ikke admin, vis kun medlemmer fra egne grupper
+      if (accessiblePersonIds && !accessiblePersonIds.has(p.id)) {
+        return false;
+      }
+      
       const matchesSearch = p.name.toLowerCase().includes(personSearch.toLowerCase()) ||
                            (p.email && p.email.toLowerCase().includes(personSearch.toLowerCase())) ||
                            (p.phone && p.phone.includes(personSearch));
@@ -1174,11 +1356,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
       {/* Precision Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Folk</h2>
-          <p className="text-sm text-slate-500">Administrasjon av personer, familier, grupper og roller.</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{isScopedLeader ? 'Mine grupper' : 'Folk'}</h2>
+          <p className="text-sm text-slate-500">{isScopedLeader ? 'Oversikt over grupper du leder eller er nestleder for.' : 'Administrasjon av personer, familier, grupper og roller.'}</p>
         </div>
         <div className="inline-flex bg-slate-200/60 p-1 rounded-lg flex-wrap gap-1">
-          {(['persons', 'families', 'barnekirke', 'fellowship', 'service', 'leadership', 'roles'] as const).map(tab => (
+          {(isScopedLeader
+            ? (['barnekirke', 'fellowship', 'service', 'leadership'] as const)
+            : (['persons', 'families', 'barnekirke', 'fellowship', 'service', 'leadership', 'roles'] as const)
+          ).map(tab => (
             <button 
               key={tab}
               onClick={() => { setActiveTab(tab); setSelectedPersonId(null); }} 
@@ -1853,10 +2038,12 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3"><div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">{getIcon(group.category)}</div><h3 className="text-sm font-bold text-slate-900">{group.name}</h3></div>
-                    {isAdmin && (
+                    {canManageGroup(group.id) && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => { e.stopPropagation(); setManageGroupId(group.id); }} className="p-1.5 text-slate-300 hover:text-indigo-600 rounded-md transition-all"><Edit2 size={14} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-md transition-all"><Trash2 size={14} /></button>
+                        {isAdmin && (
+                          <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-md transition-all"><Trash2 size={14} /></button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2250,6 +2437,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                 />
               </div>
               <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Bilde-URL</label>
+                <input
+                  name="imageUrl"
+                  type="url"
+                  value={newPersonImageUrl}
+                  onChange={(e) => setNewPersonImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Last opp bilde</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageFileChange(file, setNewPersonImageUrl);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Bildet lagres lokalt og kan brukes i alle visninger.</p>
+              </div>
+              <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Fødselsdato</label>
                 <input
                   name="birth_date"
@@ -2348,6 +2561,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                   placeholder="+47 123 45 678"
                 />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Bilde-URL</label>
+                <input
+                  name="imageUrl"
+                  type="url"
+                  value={editingPersonImageUrl}
+                  onChange={(e) => setEditingPersonImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Last opp bilde</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageFileChange(file, setEditingPersonImageUrl);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Bildet lagres lokalt og kan brukes i alle visninger.</p>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Fødselsdato</label>
@@ -3035,14 +3274,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, initialViewGroupId, i
                 <h2 className="text-xl font-bold text-slate-900">{viewedGroup.name}</h2>
               </div>
               <div className="flex items-center gap-2">
-                {isAdmin && (
+                {canManageGroup(viewingGroupId) && (
                   <>
                     <button onClick={() => { setManageGroupId(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Rediger">
                       <Edit2 size={20} className="text-slate-600" />
                     </button>
-                    <button onClick={() => { setIsDeletingGroup(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Slett">
-                      <Trash2 size={20} className="text-slate-600" />
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => { setIsDeletingGroup(viewingGroupId); setViewingGroupId(null); }} className="p-2 hover:bg-slate-200 rounded-lg transition-colors" title="Slett">
+                        <Trash2 size={20} className="text-slate-600" />
+                      </button>
+                    )}
                   </>
                 )}
                 <button onClick={() => setViewingGroupId(null)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">

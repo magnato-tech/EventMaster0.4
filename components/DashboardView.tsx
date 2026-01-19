@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AppState, CoreRole, GroupCategory } from '../types';
-import { ArrowUp, X, ChevronRight } from 'lucide-react';
+import { ArrowUp, X, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface Props {
   db: AppState;
@@ -22,7 +22,7 @@ const AttendanceChart: React.FC<{ records: AttendanceRecord[] }> = ({ records })
   if (sortedRecords.length === 0) return null;
 
   const width = 800;
-  const height = 300;
+  const height = 240; // Redusert for kompakt visning
   const padding = { top: 20, right: 30, bottom: 50, left: 60 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -269,7 +269,7 @@ const PopulationPyramid: React.FC<{ db: AppState }> = ({ db }) => {
   const maxValue = Math.max(...allValues, 1); // Minimum 1 for å unngå divisjon med 0
 
   const width = 800;
-  const height = 400;
+  const height = 240; // Redusert for kompakt visning
   const padding = { top: 40, right: 120, bottom: 60, left: 120 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -456,6 +456,7 @@ const DashboardView: React.FC<Props> = ({ db }) => {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isFellowshipModalOpen, setIsFellowshipModalOpen] = useState(false);
   const [isChildrenModalOpen, setIsChildrenModalOpen] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   // Beregn statistikk basert på medlemmer (ikke GUEST)
   const stats = useMemo(() => {
@@ -602,185 +603,273 @@ const DashboardView: React.FC<Props> = ({ db }) => {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-20 md:pb-8 animate-in fade-in duration-300 text-left">
-      <header className="border-b border-slate-200 pb-4">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Menighetsoversikt</h2>
-        <p className="text-sm text-slate-500 font-medium">Statistikk og oversikt over menigheten.</p>
+    <div className="space-y-3 max-w-[1600px] mx-auto pb-20 md:pb-8 animate-in fade-in duration-300 text-left">
+      <header className="border-b border-slate-200 pb-3">
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Menighetsoversikt</h2>
+        <p className="text-xs text-slate-500 font-medium">Statistikk og oversikt over menigheten.</p>
       </header>
 
-      {/* Besøkskurve */}
-      {attendanceRecords.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Besøksutvikling</h3>
-          <AttendanceChart records={attendanceRecords} />
+      {/* KPI-kort øverst - kompakte, tekst-fokuserte */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{stats.inServiceCount}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Aktive medlemmer</div>
         </div>
-      )}
-
-      {/* Demografisk oversikt */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Demografisk oversikt</h3>
-        <PopulationPyramid db={db} />
-      </div>
-
-      {/* Kakediagrammer for smågrupper i menigheten */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-6">Smågrupper i menigheten</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Husgruppe */}
-          {(() => {
-            const fellowshipGroups = db.groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
-            const fellowshipGroupStats = fellowshipGroups.map(group => ({
-              groupId: group.id,
-              groupName: group.name,
-              memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
-            })).sort((a, b) => b.memberCount - a.memberCount);
-            const totalFellowshipMembers = fellowshipGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
-            
-            if (fellowshipGroupStats.length > 0 && totalFellowshipMembers > 0) {
-              return (
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-700">Husgrupper</h4>
-                  <CategoryPieChart
-                    groupStats={fellowshipGroupStats}
-                    totalMembers={totalFellowshipMembers}
-                    categoryName="Husgrupper"
-                  />
-                </div>
-              );
-            }
-            return null;
-          })()}
-
-          {/* Barnekirke */}
-          {(() => {
-            const barnekirkeGroups = db.groups.filter(g => g.category === GroupCategory.BARNKIRKE);
-            const barnekirkeGroupStats = barnekirkeGroups.map(group => ({
-              groupId: group.id,
-              groupName: group.name,
-              memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
-            })).sort((a, b) => b.memberCount - a.memberCount);
-            const totalBarnekirkeMembers = barnekirkeGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
-            
-            if (barnekirkeGroupStats.length > 0 && totalBarnekirkeMembers > 0) {
-              return (
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-700">Barnekirke</h4>
-                  <CategoryPieChart
-                    groupStats={barnekirkeGroupStats}
-                    totalMembers={totalBarnekirkeMembers}
-                    categoryName="Barnekirke"
-                  />
-                </div>
-              );
-            }
-            return null;
-          })()}
-
-          {/* Team */}
-          {(() => {
-            const serviceGroups = db.groups.filter(g => g.category === GroupCategory.SERVICE);
-            const serviceGroupStats = serviceGroups.map(group => ({
-              groupId: group.id,
-              groupName: group.name,
-              memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
-            })).sort((a, b) => b.memberCount - a.memberCount);
-            const totalServiceMembers = serviceGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
-            
-            if (serviceGroupStats.length > 0 && totalServiceMembers > 0) {
-              return (
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-700">Team</h4>
-                  <CategoryPieChart
-                    groupStats={serviceGroupStats}
-                    totalMembers={totalServiceMembers}
-                    categoryName="Team"
-                  />
-                </div>
-              );
-            }
-            return null;
-          })()}
-
-          {/* Ledelse */}
-          {(() => {
-            const leadershipGroups = db.groups.filter(g => g.category === GroupCategory.STRATEGY);
-            const leadershipGroupStats = leadershipGroups.map(group => ({
-              groupId: group.id,
-              groupName: group.name,
-              memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
-            })).sort((a, b) => b.memberCount - a.memberCount);
-            const totalLeadershipMembers = leadershipGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
-            
-            if (leadershipGroupStats.length > 0 && totalLeadershipMembers > 0) {
-              return (
-                <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-700">Ledelse</h4>
-                  <CategoryPieChart
-                    groupStats={leadershipGroupStats}
-                    totalMembers={totalLeadershipMembers}
-                    categoryName="Ledelse"
-                  />
-                </div>
-              );
-            }
-            return null;
-          })()}
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{stats.inFellowshipCount}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Frivillige i sving</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">
+            {(() => {
+              const nextEvent = db.eventOccurrences
+                .filter(o => new Date(o.date) >= new Date())
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+              return nextEvent 
+                ? new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'short' }).format(new Date(nextEvent.date))
+                : 'Ingen';
+            })()}
+          </div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Neste gudstjeneste</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{stats.childrenAndYouth}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Barn & unge</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{stats.averageAttendance}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Snitt besøk</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="text-2xl font-bold text-slate-900">{stats.servicePercentage}%</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">I tjeneste</div>
         </div>
       </div>
 
-      {/* Statistikk-kort */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Kort 1: I tjeneste */}
+      {/* Grid-layout med grafer og informasjonsblokker - 3 kolonner */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Besøkskurve - kompakt */}
+        {attendanceRecords.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm max-h-[350px] flex flex-col">
+            <h3 className="text-sm font-bold text-slate-900 mb-2">Besøksutvikling</h3>
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full max-h-[290px] overflow-hidden">
+                <AttendanceChart records={attendanceRecords} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Demografisk oversikt - kompakt */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm max-h-[350px] flex flex-col">
+          <h3 className="text-sm font-bold text-slate-900 mb-2">Demografisk oversikt</h3>
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full max-h-[290px] overflow-hidden">
+              <PopulationPyramid db={db} />
+            </div>
+          </div>
+        </div>
+
+        {/* Kakediagrammer for smågrupper i menigheten - karusell, kompakt */}
+        {(() => {
+          // Bygg liste over alle kategorier med data
+          const categories: Array<{
+            name: string;
+            categoryName: string;
+            groupStats: Array<{ groupId: string; groupName: string; memberCount: number }>;
+            totalMembers: number;
+          }> = [];
+
+          // Husgruppe
+          const fellowshipGroups = db.groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
+          const fellowshipGroupStats = fellowshipGroups.map(group => ({
+            groupId: group.id,
+            groupName: group.name,
+            memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
+          })).sort((a, b) => b.memberCount - a.memberCount);
+          const totalFellowshipMembers = fellowshipGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
+          if (fellowshipGroupStats.length > 0 && totalFellowshipMembers > 0) {
+            categories.push({
+              name: 'Husgrupper',
+              categoryName: 'Husgrupper',
+              groupStats: fellowshipGroupStats,
+              totalMembers: totalFellowshipMembers
+            });
+          }
+
+          // Barnekirke
+          const barnekirkeGroups = db.groups.filter(g => g.category === GroupCategory.BARNKIRKE);
+          const barnekirkeGroupStats = barnekirkeGroups.map(group => ({
+            groupId: group.id,
+            groupName: group.name,
+            memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
+          })).sort((a, b) => b.memberCount - a.memberCount);
+          const totalBarnekirkeMembers = barnekirkeGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
+          if (barnekirkeGroupStats.length > 0 && totalBarnekirkeMembers > 0) {
+            categories.push({
+              name: 'Barnekirke',
+              categoryName: 'Barnekirke',
+              groupStats: barnekirkeGroupStats,
+              totalMembers: totalBarnekirkeMembers
+            });
+          }
+
+          // Team
+          const serviceGroups = db.groups.filter(g => g.category === GroupCategory.SERVICE);
+          const serviceGroupStats = serviceGroups.map(group => ({
+            groupId: group.id,
+            groupName: group.name,
+            memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
+          })).sort((a, b) => b.memberCount - a.memberCount);
+          const totalServiceMembers = serviceGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
+          if (serviceGroupStats.length > 0 && totalServiceMembers > 0) {
+            categories.push({
+              name: 'Team',
+              categoryName: 'Team',
+              groupStats: serviceGroupStats,
+              totalMembers: totalServiceMembers
+            });
+          }
+
+          // Ledelse
+          const leadershipGroups = db.groups.filter(g => g.category === GroupCategory.STRATEGY);
+          const leadershipGroupStats = leadershipGroups.map(group => ({
+            groupId: group.id,
+            groupName: group.name,
+            memberCount: db.groupMembers.filter(gm => gm.group_id === group.id).length
+          })).sort((a, b) => b.memberCount - a.memberCount);
+          const totalLeadershipMembers = leadershipGroupStats.reduce((sum, g) => sum + g.memberCount, 0);
+          if (leadershipGroupStats.length > 0 && totalLeadershipMembers > 0) {
+            categories.push({
+              name: 'Ledelse',
+              categoryName: 'Ledelse',
+              groupStats: leadershipGroupStats,
+              totalMembers: totalLeadershipMembers
+            });
+          }
+
+          if (categories.length === 0) return null;
+
+          const currentCategory = categories[carouselIndex % categories.length];
+          const nextIndex = () => setCarouselIndex((prev) => (prev + 1) % categories.length);
+          const prevIndex = () => setCarouselIndex((prev) => (prev - 1 + categories.length) % categories.length);
+
+          return (
+            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm max-h-[350px] flex flex-col">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Smågrupper</h3>
+              
+              {/* Karusell-container */}
+              <div className="relative flex items-center justify-center flex-1 min-h-[280px]">
+                {/* Venstre pil */}
+                {categories.length > 1 && (
+                  <button
+                    onClick={prevIndex}
+                    className="absolute left-0 z-10 p-1.5 rounded-full bg-white border border-gray-300 shadow-md hover:bg-gray-50 hover:border-indigo-400 transition-all flex items-center justify-center"
+                    aria-label="Forrige diagram"
+                  >
+                    <ChevronLeft size={18} className="text-gray-700" />
+                  </button>
+                )}
+
+                {/* Diagram */}
+                <div className="flex-1 flex justify-center px-8">
+                  <div className="w-full max-w-full">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-700 text-center">{currentCategory.name}</h4>
+                      <CategoryPieChart
+                        groupStats={currentCategory.groupStats}
+                        totalMembers={currentCategory.totalMembers}
+                        categoryName={currentCategory.categoryName}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Høyre pil */}
+                {categories.length > 1 && (
+                  <button
+                    onClick={nextIndex}
+                    className="absolute right-0 z-10 p-1.5 rounded-full bg-white border border-gray-300 shadow-md hover:bg-gray-50 hover:border-indigo-400 transition-all flex items-center justify-center"
+                    aria-label="Neste diagram"
+                  >
+                    <ChevronRight size={18} className="text-gray-700" />
+                  </button>
+                )}
+              </div>
+
+              {/* Prikk-indikatorer */}
+              {categories.length > 1 && (
+                <div className="flex justify-center gap-2 mt-2">
+                  {categories.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCarouselIndex(index)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        index === carouselIndex
+                          ? 'w-5 bg-indigo-600'
+                          : 'w-1.5 bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Gå til ${categories[index].name}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Statistikk-liste - kompakt */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           onClick={() => setIsServiceModalOpen(true)}
-          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left cursor-pointer group"
+          className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left cursor-pointer group"
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.inServiceCount}
-              <span className="text-lg text-green-600 ml-2">({stats.servicePercentage}%)</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-slate-900">
+                {stats.inServiceCount} <span className="text-sm text-green-600">({stats.servicePercentage}%)</span>
+              </div>
+              <div className="text-xs text-gray-500">I tjeneste</div>
             </div>
-            <ChevronRight size={20} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
+            <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
           </div>
-          <div className="text-sm text-gray-500">I tjeneste</div>
         </button>
 
-        {/* Kort 2: I Husgrupper */}
         <button
           onClick={() => setIsFellowshipModalOpen(true)}
-          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left cursor-pointer group"
+          className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left cursor-pointer group"
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.inFellowshipCount}
-              <span className="text-lg text-green-600 ml-2">({stats.fellowshipPercentage}%)</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-slate-900">
+                {stats.inFellowshipCount} <span className="text-sm text-green-600">({stats.fellowshipPercentage}%)</span>
+              </div>
+              <div className="text-xs text-gray-500">I Husgrupper</div>
             </div>
-            <ChevronRight size={20} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
+            <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
           </div>
-          <div className="text-sm text-gray-500">I Husgrupper</div>
         </button>
 
-        {/* Kort 3: Barn & Unge */}
         <button
           onClick={() => setIsChildrenModalOpen(true)}
-          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left cursor-pointer group"
+          className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left cursor-pointer group"
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.childrenAndYouth}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-slate-900">{stats.childrenAndYouth}</div>
+              <div className="text-xs text-gray-500">Barn & Unge</div>
             </div>
-            <ChevronRight size={20} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
+            <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
           </div>
-          <div className="text-sm text-gray-500">Barn & Unge</div>
         </button>
 
-        {/* Kort 4: Gudstjenestesnitt */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="text-3xl font-bold text-slate-900">{stats.averageAttendance}</div>
-            {stats.averageAttendance > 0 && <ArrowUp size={16} className="text-green-500" />}
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="text-lg font-bold text-slate-900">{stats.averageAttendance}</div>
+            {stats.averageAttendance > 0 && <ArrowUp size={14} className="text-green-500" />}
           </div>
-          <div className="text-sm text-gray-500">Gudstjenestesnitt</div>
+          <div className="text-xs text-gray-500">Gudstjenestesnitt</div>
         </div>
       </div>
 
@@ -790,41 +879,41 @@ const DashboardView: React.FC<Props> = ({ db }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dato</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Dato</label>
               <input
                 type="date"
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Voksne</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Voksne</label>
               <input
                 type="number"
                 min="0"
                 value={formAdults}
                 onChange={(e) => setFormAdults(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 placeholder="0"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Barn</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Barn</label>
               <input
                 type="number"
                 min="0"
                 value={formChildren}
                 onChange={(e) => setFormChildren(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 placeholder="0"
               />
             </div>
           </div>
           <button
             type="submit"
-            className="px-6 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
+            className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
           >
             Lagre
           </button>

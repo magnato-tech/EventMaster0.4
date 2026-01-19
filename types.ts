@@ -46,6 +46,7 @@ export interface Person {
   name: string;
   email?: string;
   phone?: string;
+  imageUrl?: string;
   social_security_number?: string;
   birth_year?: number;
   birth_date?: string;
@@ -65,6 +66,8 @@ export interface Group {
   link?: string;
   parent_id?: UUID | null;
   gathering_pattern?: GatheringPattern;
+  leaderId?: string;
+  deputyId?: string;
 }
 
 export interface GroupMember {
@@ -96,6 +99,7 @@ export interface EventTemplate {
   title: string;
   type: string;
   recurrence_rule: string;
+  color?: string; // Farge for events (hex-kode, f.eks. '#2563eb' for blå)
 }
 
 export interface EventOccurrence {
@@ -108,6 +112,7 @@ export interface EventOccurrence {
   bible_verse?: string; // Dagens bibbelord
   status: OccurrenceStatus;
   last_synced_at?: string;
+  color?: string; // Farge for event (arves fra template)
 }
 
 export interface Assignment {
@@ -153,11 +158,13 @@ export interface ChangeLog {
 export interface NoticeMessage {
   id: UUID;
   sender_id: UUID | 'system';
-  recipient_role: CoreRole; 
+  recipient_role?: CoreRole; 
+  recipient_id?: UUID;
   title: string;
   content: string;
   created_at: string;
   occurrence_id?: UUID;
+  isRead?: boolean; // Standard false hvis ikke satt
 }
 
 export interface Family {

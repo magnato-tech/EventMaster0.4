@@ -10,22 +10,23 @@ EventMaster0.4/
 ├── App.tsx                    # Hovedkomponent med routing og state management
 ├── index.tsx                  # React entry point
 ├── types.ts                   # TypeScript type definitions
-├── db.ts                      # Database/logic layer (localStorage)
-├── constants.tsx              # Initial data og konstanter
+├── db.ts                      # Database/logic layer (localStorage med backup-støtte)
+├── constants.tsx              # Initial data (POPULATED_DATA inkl. familier)
 ├── vite.config.ts             # Vite konfigurasjon
 ├── tsconfig.json              # TypeScript konfigurasjon
 ├── package.json               # Dependencies og scripts
 ├── index.html                 # HTML entry point
+├── master_data_backup.json    # Eksport/Import backup-fil
 └── components/
     ├── Dashboard.tsx          # Brukerens vaktliste og oversikt
-    ├── DashboardView.tsx     # Statistikk-dashboard
+    ├── DashboardView.tsx      # Statistikk-dashboard med grafer
     ├── CalendarView.tsx       # Kalendervisning og planlegging
-    ├── GroupsView.tsx         # Grupper og personer administrasjon
+    ├── GroupsView.tsx         # Grupper, personer og familiestruktur
     ├── YearlyWheelView.tsx    # Årshjul med administrative frister
-    ├── CommunicationView.tsx  # Meldinger og oppslag
-    ├── MasterMenu.tsx         # Master-oppsett (admin)
-    ├── IdentityPicker.tsx      # Brukervelger ved oppstart
-    ├── Navigation.tsx         # Navigasjonskomponent
+    ├── CommunicationView.tsx  # Meldinger og systemvarsler
+    ├── MasterMenu.tsx         # Master-oppsett (gul sone)
+    ├── IdentityPicker.tsx     # Brukervelger ved oppstart
+    ├── Navigation.tsx         # Navigasjonskomponent (desktop/mobile)
     ├── PersonAvatar.tsx       # Avatar-komponent
     └── SettingsView.tsx       # Innstillinger
 ```
@@ -37,10 +38,11 @@ EventMaster0.4/
 - **TypeScript 5.8.2** - Type safety
 - **Vite 6.2.0** - Build tool og dev server
 - **Tailwind CSS** (via CDN) - Styling
+- **Lucide React** - Ikonbibliotek
 
-### Biblioteker
-- **lucide-react 0.562.0** - Ikoner
-- **localStorage** - Datalagring (ingen backend)
+### Lagring
+- **localStorage** - Hovedlagring i nettleser (`eventmaster_lmk_db`)
+- **JSON Backup** - Støtte for eksport/import via `master_data_backup.json`
 
 ## 📦 Hovedkomponenter
 
@@ -61,7 +63,7 @@ Hovedkomponent som håndterer:
 
 ### Dashboard.tsx
 Brukerens personlige dashboard som viser:
-- Planlagte vakter (assignments og program items)
+- Mine Oppgaver (assignments og program items)
 - Mine grupper
 - Viktige frister (tasks)
 - Statistikk (personer, tjeneste, barn/unge)
