@@ -272,6 +272,7 @@ export const performBulkCopy = (occurrence: EventOccurrence, state: AppState): A
   // We need to create a unique assignment for each [role + person] combo in the program
   const autoAssignments: Assignment[] = [];
   const roleCounts = new Map<string, number>();
+  const templateProgramRoleIds = new Set(templateProgramItems.filter(p => p.service_role_id).map(p => p.service_role_id));
 
   templateProgramItems.forEach(tp => {
     if (tp.service_role_id) {
@@ -290,7 +291,9 @@ export const performBulkCopy = (occurrence: EventOccurrence, state: AppState): A
   });
 
   // 3. Get manual assignments (Source B)
-  const templateManualAssignments = state.assignments.filter(a => a.template_id === occurrence.template_id);
+  const templateManualAssignments = state.assignments.filter(a =>
+    a.template_id === occurrence.template_id && !templateProgramRoleIds.has(a.service_role_id)
+  );
   const newManualAssignments: Assignment[] = templateManualAssignments.map(ta => ({
     id: crypto.randomUUID(),
     occurrence_id: occurrence.id,

@@ -62,6 +62,8 @@ const App: React.FC = () => {
 
     const programItems = state.programItems.filter(p => p.occurrence_id === occurrenceId);
     const existingAssignments = state.assignments.filter(a => a.occurrence_id === occurrenceId);
+    const programRoleIds = new Set(programItems.filter(p => p.service_role_id).map(p => p.service_role_id));
+    const manualAssignments = existingAssignments.filter(a => !programRoleIds.has(a.service_role_id));
     
     // 1. Aggreger unike [Rolle + Person] fra programmet
     const rolePersonMap = new Map<string, string[]>();
@@ -146,7 +148,11 @@ const App: React.FC = () => {
 
     return {
       ...state,
-      assignments: [...state.assignments.filter(a => a.occurrence_id !== occurrenceId), ...newAssignments],
+      assignments: [
+        ...state.assignments.filter(a => a.occurrence_id !== occurrenceId),
+        ...manualAssignments,
+        ...newAssignments
+      ],
       changeLogs: [...(state.changeLogs || []), ...logs],
       noticeMessages: [...notices, ...state.noticeMessages],
       eventOccurrences: state.eventOccurrences.map(o => o.id === occurrenceId ? { ...o, last_synced_at: new Date().toISOString() } : o)

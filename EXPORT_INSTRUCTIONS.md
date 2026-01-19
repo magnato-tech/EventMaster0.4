@@ -70,3 +70,7 @@ Filen `master_data_backup.json` inneholder:
 - Hvis localStorage er tom, brukes INITIAL_DATA fra constants.tsx
 - Eksporten inkluderer kun personer og grupper, ikke andre data som events, tasks, etc.
 
+
+
+
+

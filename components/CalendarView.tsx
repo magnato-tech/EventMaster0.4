@@ -260,6 +260,19 @@ const CalendarView: React.FC<Props> = ({
     });
   }, [selectedOcc, db.programItems]);
 
+  const staffingData = useMemo(() => {
+    if (!selectedOcc) return { programLinked: [], manual: [] };
+    const programRoleIds = new Set(
+      db.programItems
+        .filter(p => p.occurrence_id === selectedOcc.id && p.service_role_id)
+        .map(p => p.service_role_id)
+    );
+    const allAssignments = db.assignments.filter(a => a.occurrence_id === selectedOcc.id);
+    const programLinked = allAssignments.filter(a => programRoleIds.has(a.service_role_id));
+    const manual = allAssignments.filter(a => !programRoleIds.has(a.service_role_id));
+    return { programLinked, manual };
+  }, [selectedOcc, db.programItems, db.assignments]);
+
   const instructionRole = db.serviceRoles.find(sr => sr.id === roleInstructionsId);
 
   const logs = useMemo(() => {
@@ -654,20 +667,75 @@ const CalendarView: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <section>
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Bemanningsoversikt</h4>
+                  <section className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Standard bemanning</h4>
+                        <p className="text-[9px] text-slate-400 font-semibold">Oppgaver fra kjøreplanen (ikke redigerbar)</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {staffingData.programLinked
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+                        .map(assign => {
+                          const role = db.serviceRoles.find(r => r.id === assign.service_role_id);
+                          const person = db.persons.find(p => p.id === assign.person_id);
+                          return (
+                            <div key={assign.id} className={`p-3 bg-white border rounded-xl shadow-sm flex flex-col gap-2 transition-all ${person ? 'border-slate-100' : 'border-amber-100 bg-amber-50/20'}`}>
+                              <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-2">
+                                  <Library size={12} className="text-indigo-400" />
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                                      {role?.name} {assign.display_order ? `(${assign.display_order})` : ''}
+                                    </p>
+                                    {role && (
+                                      <button 
+                                        onClick={() => setRoleInstructionsId(role.id)} 
+                                        className="text-slate-300 hover:text-indigo-600 transition-colors"
+                                        title="Se instruks"
+                                      >
+                                        <div className="w-3.5 h-3.5 rounded-full border border-current flex items-center justify-center">
+                                          <Info size={8} strokeWidth={3} />
+                                        </div>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                              </div>
+                              <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
+                                {person?.name || 'Ledig vakt'}
+                              </p>
+                              <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold uppercase tracking-tighter rounded w-fit">
+                                Fra kjøreplan
+                              </span>
+                            </div>
+                          );
+                        })}
+                      {staffingData.programLinked.length === 0 && (
+                        <div className="text-xs text-slate-400 font-semibold italic col-span-full">
+                          Ingen oppgaver fra kjøreplanen ennå.
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tilleggsvakter</h4>
+                        <p className="text-[9px] text-slate-400 font-semibold">Manuelt lagt til (kan redigeres)</p>
+                      </div>
                       {isAdmin && (
                         <button onClick={() => setIsAddRoleModalOpen(true)} className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-700">
                           <Plus size={12} /> Legg til ekstra vakt
                         </button>
                       )}
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {db.assignments
-                        .filter(a => a.occurrence_id === selectedOcc.id)
-                        .sort((a,b) => (a.display_order || 0) - (b.display_order || 0))
+                      {staffingData.manual
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
                         .map(assign => {
                           const role = db.serviceRoles.find(r => r.id === assign.service_role_id);
                           const person = db.persons.find(p => p.id === assign.person_id);
@@ -718,7 +786,12 @@ const CalendarView: React.FC<Props> = ({
                               )}
                             </div>
                           );
-                      })}
+                        })}
+                      {staffingData.manual.length === 0 && (
+                        <div className="text-xs text-slate-400 font-semibold italic col-span-full">
+                          Ingen tilleggsvakter lagt til.
+                        </div>
+                      )}
                     </div>
                   </section>
                 </div>

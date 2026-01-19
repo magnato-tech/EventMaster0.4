@@ -69,3 +69,7 @@
 
 **Konklusjon: ✅ PROSJEKTET ER HELSE-SJEKKET OG KLAR TIL BRUK (VERSJON 0.4)**
 
+
+
+
+
