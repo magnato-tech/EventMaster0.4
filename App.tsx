@@ -1,7 +1,15 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, Person, GroupCategory, EventOccurrence, ProgramItem, Assignment, UUID, GroupRole, Task, NoticeMessage, CoreRole, ChangeLog, OccurrenceStatus } from './types';
-import { getDB, saveDB, performBulkCopy, downloadPersonsAndGroups, exportPersonsAndGroups } from './db';
+import { getDB, saveDB, performBulkCopy } from './db';
+
+// Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
+const parseLocalDate = (dateString: string): Date => {
+  // dateString er i format "YYYY-MM-DD"
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Opprett dato i lokal tid (Berlin time)
+  return new Date(year, month - 1, day);
+};
 import IdentityPicker from './components/IdentityPicker';
 import Dashboard from './components/Dashboard';
 import DashboardView from './components/DashboardView';
@@ -11,49 +19,19 @@ import MasterMenu from './components/MasterMenu';
 import GroupsView from './components/GroupsView';
 import YearlyWheelView from './components/YearlyWheelView';
 import CommunicationView from './components/CommunicationView';
-import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3, Shield } from 'lucide-react';
-
-// Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
-const parseLocalDate = (dateString: string): Date => {
-  // dateString er i format "YYYY-MM-DD"
-  const [year, month, day] = dateString.split('-').map(Number);
-  // Opprett dato i lokal tid (Berlin time)
-  return new Date(year, month - 1, day);
-};
+import SettingsTab from './components/SettingsTab';
+import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [db, setDb] = useState<AppState>(getDB());
   const [currentUser, setCurrentUser] = useState<Person | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages' | 'settings'>('dashboard');
   const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
   const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
-  const [calendarFocusOccurrenceId, setCalendarFocusOccurrenceId] = useState<UUID | null>(null);
 
   useEffect(() => {
     saveDB(db);
-    // Gjør eksport-funksjoner tilgjengelige globalt for debugging
-    if (typeof window !== 'undefined') {
-      (window as any).exportPersonsAndGroups = exportPersonsAndGroups;
-      (window as any).downloadPersonsAndGroups = downloadPersonsAndGroups;
-    }
   }, [db]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const latest = db.persons.find(p => p.id === currentUser.id);
-    if (!latest) return;
-    if (
-      latest.name !== currentUser.name ||
-      latest.email !== currentUser.email ||
-      latest.phone !== currentUser.phone ||
-      latest.imageUrl !== currentUser.imageUrl ||
-      latest.core_role !== currentUser.core_role ||
-      latest.is_admin !== currentUser.is_admin ||
-      latest.is_active !== currentUser.is_active
-    ) {
-      setCurrentUser(latest);
-    }
-  }, [db.persons, currentUser]);
 
   // AUTOMATISK SYNKRONISERING OG VARSLINGSLOGIKK
   const syncStaffingAndNotify = useCallback((occurrenceId: UUID, state: AppState, actor: Person): AppState => {
@@ -62,8 +40,6 @@ const App: React.FC = () => {
 
     const programItems = state.programItems.filter(p => p.occurrence_id === occurrenceId);
     const existingAssignments = state.assignments.filter(a => a.occurrence_id === occurrenceId);
-    const programRoleIds = new Set(programItems.filter(p => p.service_role_id).map(p => p.service_role_id));
-    const manualAssignments = existingAssignments.filter(a => !programRoleIds.has(a.service_role_id));
     
     // 1. Aggreger unike [Rolle + Person] fra programmet
     const rolePersonMap = new Map<string, string[]>();
@@ -98,6 +74,8 @@ const App: React.FC = () => {
     // 2. Finn endringer for Logg og Varsling
     const roleNames = new Map(state.serviceRoles.map(r => [r.id, r.name]));
     const personNames = new Map(state.persons.map(p => [p.id, p.name]));
+    
+    // Enkel differanse-sjekk
     newAssignments.forEach(na => {
       const match = existingAssignments.find(ea => ea.service_role_id === na.service_role_id && ea.person_id === na.person_id);
       if (!match) {
@@ -117,7 +95,7 @@ const App: React.FC = () => {
         const motelederRole = state.serviceRoles.find(r => r.name.toLowerCase().includes('møteleder'));
         const motelederAssignment = existingAssignments.find(a => a.service_role_id === motelederRole?.id);
 
-        // Systemmelding til Pastor
+        // Systemmelding
         notices.push({
           id: crypto.randomUUID(),
           sender_id: 'system',
@@ -125,34 +103,14 @@ const App: React.FC = () => {
           title: 'Bemanning oppdatert',
           content: `Endring for ${occ.title_override || 'Gudstjeneste'} (${occ.date}): ${desc}`,
           created_at: new Date().toISOString(),
-          occurrence_id: occurrenceId,
-          isRead: false
+          occurrence_id: occurrenceId
         });
-
-        // Personlig melding til den som har fått oppgaven
-        if (na.person_id) {
-          const eventTitle = occ.title_override || state.eventTemplates.find(t => t.id === occ.template_id)?.title || 'Arrangement';
-          notices.push({
-            id: crypto.randomUUID(),
-            sender_id: 'system',
-            recipient_id: na.person_id,
-            title: 'Ny oppgave tildelt',
-            content: `Du har blitt satt opp som ${roleName} på ${eventTitle} (${occ.date}).`,
-            created_at: new Date().toISOString(),
-            occurrence_id: occurrenceId,
-            isRead: false
-          });
-        }
       }
     });
 
     return {
       ...state,
-      assignments: [
-        ...state.assignments.filter(a => a.occurrence_id !== occurrenceId),
-        ...manualAssignments,
-        ...newAssignments
-      ],
+      assignments: [...state.assignments.filter(a => a.occurrence_id !== occurrenceId), ...newAssignments],
       changeLogs: [...(state.changeLogs || []), ...logs],
       noticeMessages: [...notices, ...state.noticeMessages],
       eventOccurrences: state.eventOccurrences.map(o => o.id === occurrenceId ? { ...o, last_synced_at: new Date().toISOString() } : o)
@@ -275,14 +233,12 @@ const App: React.FC = () => {
 
   const handleCreateOccurrence = (templateId: string, date: string, time?: string) => {
     const newId = crypto.randomUUID();
-    const template = db.eventTemplates.find(t => t.id === templateId);
     const newOccurrence: EventOccurrence = {
       id: newId,
       template_id: templateId,
       date,
       time,
-      status: OccurrenceStatus.DRAFT,
-      color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
+      status: OccurrenceStatus.DRAFT
     };
     
     let nextDb = {
@@ -411,7 +367,6 @@ const App: React.FC = () => {
     }
     
     // Create occurrences
-    const template = db.eventTemplates.find(t => t.id === templateId);
     occurrences.forEach(({ date }) => {
       const dateStr = formatLocalDate(date);
       const exists = nextDb.eventOccurrences.some(o => o.template_id === templateId && o.date === dateStr);
@@ -423,8 +378,7 @@ const App: React.FC = () => {
           template_id: templateId,
           date: dateStr,
           time,
-          status: OccurrenceStatus.DRAFT,
-          color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
+          status: OccurrenceStatus.DRAFT
         };
         
         nextDb.eventOccurrences.push(newOccurrence);
@@ -459,7 +413,6 @@ const App: React.FC = () => {
 
   const handleIdentitySelect = (person: Person) => {
     setCurrentUser(person);
-    setActiveTab('dashboard');
   };
   
   const handleViewGroup = (groupId: UUID) => {
@@ -475,7 +428,7 @@ const App: React.FC = () => {
   const handleAddMessage = (msg: NoticeMessage) => {
     setDb(prev => ({
       ...prev,
-      noticeMessages: [{ ...msg, isRead: false }, ...prev.noticeMessages]
+      noticeMessages: [msg, ...prev.noticeMessages]
     }));
   };
 
@@ -485,61 +438,6 @@ const App: React.FC = () => {
       noticeMessages: prev.noticeMessages.filter(m => m.id !== id)
     }));
   };
-
-  // Sjekk om det finnes uleste meldinger for den innloggede brukeren
-  const hasUnreadMessages = useMemo(() => {
-    if (!currentUser) return false;
-    
-    return db.noticeMessages.some(msg => {
-      // Ignorer allerede leste meldinger
-      if (msg.isRead === true) return false;
-      
-      // Ignorer meldinger sendt av brukeren selv
-      if (msg.sender_id === currentUser.id) return false;
-      
-      // Sjekk personlig melding
-      if (msg.recipient_id === currentUser.id) return true;
-
-      // Sjekk om meldingen er relevant for brukerens rolle
-      if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
-        // Admin/Pastor kan se systemmeldinger og meldinger rettet til ADMIN eller PASTOR
-        return msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN || msg.recipient_role === CoreRole.TEAM_LEADER;
-      }
-      if (currentUser.core_role === CoreRole.TEAM_LEADER) {
-        // Team Leader kan se meldinger rettet til TEAM_LEADER
-        return msg.recipient_role === CoreRole.TEAM_LEADER;
-      }
-      return false;
-    });
-  }, [db.noticeMessages, currentUser]);
-
-  const handleMarkMessagesAsRead = useCallback(() => {
-    if (!currentUser) return;
-    
-    setDb(prev => ({
-      ...prev,
-      noticeMessages: prev.noticeMessages.map(msg => {
-        // Marker kun relevante meldinger som leste
-        if (msg.isRead === true) return msg; // Allerede lest
-        if (msg.sender_id === currentUser.id) return msg; // Sendt av brukeren selv
-        
-        const isPersonal = msg.recipient_id === currentUser.id;
-        let isRelevantRole = false;
-
-        // Sjekk om meldingen er relevant for brukerens rolle
-        if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
-          isRelevantRole = msg.sender_id === 'system' || msg.recipient_role === CoreRole.PASTOR || msg.recipient_role === CoreRole.ADMIN || msg.recipient_role === CoreRole.TEAM_LEADER;
-        } else if (currentUser.core_role === CoreRole.TEAM_LEADER) {
-          isRelevantRole = msg.recipient_role === CoreRole.TEAM_LEADER;
-        }
-
-        if (isPersonal || isRelevantRole) {
-          return { ...msg, isRead: true };
-        }
-        return msg;
-      })
-    }));
-  }, [currentUser, setDb]);
 
   useEffect(() => {
     if (activeTab !== 'groups') {
@@ -553,10 +451,6 @@ const App: React.FC = () => {
   }
 
   const canSeeMessages = currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR || currentUser.core_role === CoreRole.TEAM_LEADER;
-  const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
-  const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
-  const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
-  const canManageGroups = currentUser.is_admin || isGroupLeader || isDeputyLeader;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-left">
@@ -566,26 +460,15 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex-1 px-4 space-y-1 py-2">
-          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min side" />
-          {currentUser.is_admin && (
-            <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
-          )}
+          <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min Vaktliste" />
+          <NavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
           <NavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-          {canManageGroups && (
-            <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+          <NavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+          {canSeeMessages && (
+            <NavItem active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} icon={<Bell size={18}/>} label="Oppslag & Dialog" />
           )}
-          <NavItem 
-            active={activeTab === 'messages'} 
-            onClick={() => {
-              setActiveTab('messages');
-              handleMarkMessagesAsRead();
-            }} 
-            icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
-            label="Oppslag & Dialog" 
-          />
-          {currentUser.is_admin && (
-            <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
-          )}
+          <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+          <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Innstillinger" />
           {currentUser.is_admin && (
             <NavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master-oppsett" />
           )}
@@ -608,25 +491,19 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
-        {activeTab === 'dashboard' && (
-          <Dashboard
-            db={db}
-            currentUser={currentUser}
-            onGoToWheel={() => setActiveTab('wheel')}
-            onLogout={() => setCurrentUser(null)}
-            onViewGroup={handleViewGroup}
-          />
-        )}
+        {activeTab === 'dashboard' && <Dashboard db={db} currentUser={currentUser} onGoToWheel={() => setActiveTab('wheel')} onViewGroup={handleViewGroup} />}
         {activeTab === 'statistics' && <DashboardView db={db} />}
         {activeTab === 'calendar' && (() => {
+          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
+          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
+          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
           const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
           
           return (
             <CalendarView 
               db={db} 
               isAdmin={hasGroupLeaderRights} 
-              focusOccurrenceId={calendarFocusOccurrenceId}
-              onFocusHandled={() => setCalendarFocusOccurrenceId(null)}
             onUpdateAssignment={handleUpdateAssignment}
             onAddAssignment={handleAddAssignment}
             onSyncStaffing={() => {}} // Nå automatisk
@@ -642,46 +519,20 @@ const App: React.FC = () => {
           );
         })()}
         {activeTab === 'groups' && (() => {
-          if (!canManageGroups) {
-            return (
-              <div className="p-8 text-center text-slate-500">
-                <Shield size={48} className="mx-auto mb-4 text-slate-300" />
-                <h3 className="text-xl font-bold mb-2">Tilgang nektet</h3>
-                <p className="text-sm">Du har ikke tilgang til medlemsregisteret.</p>
-              </div>
-            );
-          }
+          // Sjekk om brukeren er gruppeleder eller nestleder i noen grupper
+          const userGroupMemberships = db.groupMembers.filter(gm => gm.person_id === currentUser.id);
+          const isGroupLeader = userGroupMemberships.some(gm => gm.role === GroupRole.LEADER);
+          const isDeputyLeader = userGroupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
+          const hasGroupLeaderRights = currentUser.is_admin || isGroupLeader || isDeputyLeader;
           
-          const userLeaderGroups = userGroupMemberships
-            .filter(gm => gm.role === GroupRole.LEADER || gm.role === GroupRole.DEPUTY_LEADER)
-            .map(gm => gm.group_id);
-          
-          return (
-            <GroupsView 
-              db={db} 
-              setDb={setDb} 
-              isAdmin={currentUser.is_admin} 
-              currentUserId={currentUser.id}
-              userLeaderGroups={userLeaderGroups}
-              initialViewGroupId={initialGroupId} 
-              initialPersonId={currentUser.is_admin ? initialPersonId : null} 
-              onViewPerson={currentUser.is_admin ? handleViewPerson : undefined} 
-            />
-          );
+          return <GroupsView db={db} setDb={setDb} isAdmin={hasGroupLeaderRights} initialViewGroupId={initialGroupId} initialPersonId={initialPersonId} onViewPerson={handleViewPerson} />;
         })()}
         {activeTab === 'wheel' && <YearlyWheelView db={db} isAdmin={currentUser.is_admin} onAddTask={handleAddTask} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} />}
-        {activeTab === 'messages' && (
-          <CommunicationView
-            db={db}
-            currentUser={currentUser}
-            onAddMessage={handleAddMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onMarkMessagesAsRead={handleMarkMessagesAsRead}
-            onViewOccurrence={(occurrenceId) => {
-              setCalendarFocusOccurrenceId(occurrenceId);
-              setActiveTab('calendar');
-            }}
-          />
+        {activeTab === 'messages' && canSeeMessages && (
+          <CommunicationView db={db} currentUser={currentUser} onAddMessage={handleAddMessage} onDeleteMessage={handleDeleteMessage} />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsTab db={db} setDb={setDb} />
         )}
         {activeTab === 'master' && currentUser.is_admin && (
           <MasterMenu 
@@ -697,26 +548,15 @@ const App: React.FC = () => {
       </main>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 px-1 z-50 shadow-2xl">
-        <MobileNavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Min side" />
-        {currentUser.is_admin && (
-          <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
-        )}
+        <MobileNavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<ClipboardList size={18}/>} label="Vakter" />
+        <MobileNavItem active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} icon={<BarChart3 size={18}/>} label="Dashboard" />
         <MobileNavItem active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={18}/>} label="Kalender" />
-        {canManageGroups && (
-          <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+        <MobileNavItem active={activeTab === 'groups'} onClick={() => { setActiveTab('groups'); setInitialPersonId(null); setInitialGroupId(null); }} icon={<Users size={18}/>} label="Folk" />
+        {canSeeMessages && (
+          <MobileNavItem active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} icon={<Bell size={18}/>} label="Melding" />
         )}
-        <MobileNavItem 
-          active={activeTab === 'messages'} 
-          onClick={() => {
-            setActiveTab('messages');
-            handleMarkMessagesAsRead();
-          }} 
-          icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
-          label="Melding" 
-        />
-        {currentUser.is_admin && (
-          <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
-        )}
+        <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
+        <MobileNavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Innst." />
         {currentUser.is_admin && (
           <MobileNavItem active={activeTab === 'master'} onClick={() => setActiveTab('master')} icon={<Settings size={18}/>} label="Master" />
         )}
@@ -730,7 +570,7 @@ const NavItem: React.FC<{active: boolean, onClick: () => void, icon: React.React
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold text-sm shadow-sm' : 'text-slate-600 hover:bg-slate-100 text-sm font-medium'}`}
   >
-    <span className="[&>svg]:shrink-0">{icon}</span>
+    {icon}
     <span>{label}</span>
   </button>
 );
@@ -740,7 +580,7 @@ const MobileNavItem: React.FC<{active: boolean, onClick: () => void, icon: React
     onClick={onClick}
     className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all ${active ? 'text-indigo-700' : 'text-slate-400'}`}
   >
-    <span className="[&>svg]:shrink-0">{icon}</span>
+    {icon}
     <span className="text-[10px] font-bold">{label}</span>
   </button>
 );
