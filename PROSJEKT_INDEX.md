@@ -11,12 +11,16 @@ EventMaster0.4/
 ├── index.tsx                  # React entry point
 ├── types.ts                   # TypeScript type definitions
 ├── db.ts                      # Database/logic layer (localStorage med backup-støtte)
-├── constants.tsx              # Initial data (POPULATED_DATA inkl. familier)
+├── constants.tsx              # Tom starttilstand (EMPTY_DATA)
 ├── vite.config.ts             # Vite konfigurasjon
 ├── tsconfig.json              # TypeScript konfigurasjon
 ├── package.json               # Dependencies og scripts
 ├── index.html                 # HTML entry point
 ├── master_data_backup.json    # Eksport/Import backup-fil
+├── scripts/
+│   ├── seed.ts                # Supabase seed
+│   ├── seedData.ts            # Testdata for seed
+│   └── seedLocal.ts           # Skriver seed til master_data_backup.json
 └── components/
     ├── Dashboard.tsx          # Brukerens vaktliste og oversikt
     ├── DashboardView.tsx      # Statistikk-dashboard med grafer
@@ -272,9 +276,12 @@ Støtter opprettelse av gjentakende arrangementer:
 - Key: `eventmaster_lmk_db`
 - JSON-serialisert AppState
 - Auto-save ved state-endringer
-- Fallback til `POPULATED_DATA` hvis tom
+- Fallback til `EMPTY_DATA` hvis tom
 
 ### Initial Data (constants.tsx)
+- `EMPTY_DATA`: Tom starttilstand uten testdata
+
+### Seed Data (scripts/seedData.ts)
 - `INITIAL_DATA`: Basis data med eksempelpersoner, grupper, roller
 - `POPULATED_DATA`: Utvidet med familier og årshjul-tasks
 - `populateFamilyData()`: Funksjon som legger til familiedata

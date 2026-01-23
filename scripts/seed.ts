@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import { POPULATED_DATA } from "../constants";
+import { POPULATED_DATA } from "./seedData";
 
 dotenv.config({ path: ".env.local" });
 

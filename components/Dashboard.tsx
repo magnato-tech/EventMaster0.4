@@ -164,7 +164,7 @@ const Dashboard: React.FC<Props> = ({ db, currentUser, onGoToWheel, onLogout, on
       totalPersons,
       servicePercentage,
       childrenAndYouth,
-      averageAttendance: 145 // Placeholder
+      averageAttendance: 0
     };
   }, [db.persons, db.groupMembers, db.assignments]);
 

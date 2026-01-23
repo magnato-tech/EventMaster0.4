@@ -67,7 +67,8 @@ Filen `master_data_backup.json` inneholder:
 ## Notater
 
 - Dataene hentes fra browser localStorage (nøkkel: `eventmaster_lmk_db`)
-- Hvis localStorage er tom, brukes INITIAL_DATA fra constants.tsx
+- Hvis localStorage er tom, brukes `EMPTY_DATA` fra `constants.tsx`
+- Kjør `npm run seed:local` for å generere seed-data til `master_data_backup.json`
 - Eksporten inkluderer kun personer og grupper, ikke andre data som events, tasks, etc.
 
 

@@ -10,6 +10,7 @@ interface Props {
 
 const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
   const [search, setSearch] = useState('');
+  const canLoadSeed = import.meta.env.DEV;
 
   const filtered = persons.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) && p.is_active
@@ -25,45 +26,26 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
     }
   };
 
-  const runTomTest = () => {
+  const loadSeedData = async () => {
     const dbKey = 'eventmaster_lmk_db';
-    let state = JSON.parse(localStorage.getItem(dbKey) || '{}');
-    
-    // 1. Opprett Tom Tekniker
-    const tomId = 'p-tom-tekniker';
-    const tom = { id: tomId, name: 'Tom Tekniker', email: 'tom.tekniker@lmk.no', is_admin: false, is_active: true, core_role: 'member' };
-    
-    if (!state.persons.some(p => p.id === tomId)) {
-      state.persons.push(tom);
+    try {
+      const response = await fetch('/master_data_backup.json', { cache: 'no-store' });
+      if (!response.ok) {
+        alert('Fant ingen seed-data. Kjør "npm run seed:local" først.');
+        return;
+      }
+      const payload = await response.json();
+      const hasSeedData = Array.isArray(payload?.persons) && payload.persons.length > 0;
+      if (!hasSeedData) {
+        alert('Seed-data er tom. Kjør "npm run seed:local" først.');
+        return;
+      }
+      localStorage.setItem(dbKey, JSON.stringify(payload));
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert('Kunne ikke laste seed-data.');
     }
-
-    // 2. Opprett arrangementet "Skidag"
-    const skidagId = 'occ-skidag-2026';
-    if (!state.eventOccurrences.some(o => o.id === skidagId)) {
-      state.eventOccurrences.push({
-        id: skidagId, template_id: null, date: '2026-02-20', time: '10:00',
-        title_override: 'Skidag', status: 'published', color: '#0ea5e9'
-      });
-    }
-
-    // 3. Legg til programpost (Lydansvarlig)
-    const roleId = 'sr6';
-    if (!state.programItems.some(pi => pi.occurrence_id === skidagId && pi.person_id === tomId)) {
-      state.programItems.push({
-        id: crypto.randomUUID(), occurrence_id: skidagId, title: 'Lydansvarlig',
-        duration_minutes: 240, service_role_id: roleId, person_id: tomId, order: 1
-      });
-    }
-
-    // 4. Opprett varselmeldingen
-    state.noticeMessages.unshift({
-      id: crypto.randomUUID(), sender_id: 'system', recipient_id: tomId,
-      title: 'Ny oppgave tildelt', content: 'Du har blitt satt opp som Lydansvarlig på Skidag (2026-02-20).',
-      created_at: new Date().toISOString(), occurrence_id: skidagId, isRead: false
-    });
-
-    localStorage.setItem(dbKey, JSON.stringify(state));
-    window.location.reload();
   };
 
   return (
@@ -107,12 +89,15 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
             )}
           </div>
 
-          <button 
-            onClick={runTomTest}
-            className="mt-8 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-100 transition-colors border border-indigo-100"
-          >
-            Kjør Test: Tom Tekniker & Skidag
-          </button>
+          {canLoadSeed && (
+            <button 
+              onClick={loadSeedData}
+              className="mt-6 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-100 transition-colors border border-indigo-100"
+            >
+              Last inn seed-data
+            </button>
+          )}
+
         </div>
 
         <div className="p-4 bg-slate-50 border-t text-center">

@@ -435,19 +435,7 @@ const PopulationPyramid: React.FC<{ db: AppState }> = ({ db }) => {
 };
 
 const DashboardView: React.FC<Props> = ({ db }) => {
-  // Mockup-data for gudstjenestebesøk i 2025
-  const initialAttendanceRecords: AttendanceRecord[] = [
-    { id: '1', date: '2025-01-05', adults: 28, children: 7 },
-    { id: '2', date: '2025-01-12', adults: 24, children: 8 },
-    { id: '3', date: '2025-01-19', adults: 30, children: 5 },
-    { id: '4', date: '2025-01-26', adults: 32, children: 8 },
-    { id: '5', date: '2025-02-02', adults: 26, children: 6 },
-    { id: '6', date: '2025-02-09', adults: 22, children: 7 },
-    { id: '7', date: '2025-02-16', adults: 35, children: 5 },
-    { id: '8', date: '2025-02-23', adults: 28, children: 6 },
-    { id: '9', date: '2025-03-02', adults: 25, children: 4 },
-    { id: '10', date: '2025-03-09', adults: 31, children: 9 },
-  ];
+  const initialAttendanceRecords: AttendanceRecord[] = [];
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
   const [formDate, setFormDate] = useState<string>(new Date().toISOString().split('T')[0]);

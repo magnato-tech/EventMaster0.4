@@ -12,7 +12,8 @@ import MasterMenu from './components/MasterMenu';
 import GroupsView from './components/GroupsView';
 import YearlyWheelView from './components/YearlyWheelView';
 import CommunicationView from './components/CommunicationView';
-import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3, Shield } from 'lucide-react';
+import SettingsTab from './components/SettingsTab';
+import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3, Shield, SlidersHorizontal } from 'lucide-react';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
 const parseLocalDate = (dateString: string): Date => {
@@ -25,11 +26,19 @@ const parseLocalDate = (dateString: string): Date => {
 const App: React.FC = () => {
   const [db, setDb] = useState<AppState>(getDB());
   const [currentUser, setCurrentUser] = useState<Person | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'statistics' | 'calendar' | 'groups' | 'master' | 'wheel' | 'messages' | 'settings'>('dashboard');
+  const [syncMode, setSyncMode] = useState<'supabase' | 'local'>('supabase');
   const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
   const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
   const [calendarFocusOccurrenceId, setCalendarFocusOccurrenceId] = useState<UUID | null>(null);
   const hasHydratedSync = useRef(false);
+
+  useEffect(() => {
+    const storedMode = localStorage.getItem('eventmaster_sync_mode');
+    if (storedMode === 'local' || storedMode === 'supabase') {
+      setSyncMode(storedMode);
+    }
+  }, []);
 
   useEffect(() => {
     saveDB(db);
@@ -45,8 +54,10 @@ const App: React.FC = () => {
       hasHydratedSync.current = true;
       return;
     }
-    queueSupabaseSync(db);
-  }, [db.persons, db.groups, db.groupMembers]);
+    if (syncMode === 'supabase') {
+      queueSupabaseSync(db);
+    }
+  }, [db.persons, db.groups, db.groupMembers, syncMode]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -496,6 +507,12 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleLoadBackup = (state: AppState) => {
+    setDb(state);
+    setCurrentUser(null);
+    setActiveTab('dashboard');
+  };
+
   // Sjekk om det finnes uleste meldinger for den innloggede brukeren
   const hasUnreadMessages = useMemo(() => {
     if (!currentUser) return false;
@@ -594,6 +611,9 @@ const App: React.FC = () => {
             label="Oppslag & Dialog" 
           />
           {currentUser.is_admin && (
+            <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SlidersHorizontal size={18}/>} label="Innstillinger" />
+          )}
+          {currentUser.is_admin && (
             <NavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
           )}
           {currentUser.is_admin && (
@@ -618,6 +638,11 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        {syncMode === 'local' && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Lokal sandkasse aktiv – endringer synkes ikke til Supabase.
+          </div>
+        )}
         {activeTab === 'dashboard' && (
           <Dashboard
             db={db}
@@ -693,6 +718,16 @@ const App: React.FC = () => {
             }}
           />
         )}
+        {activeTab === 'settings' && currentUser.is_admin && (
+          <SettingsTab
+            onLoadBackup={handleLoadBackup}
+            syncMode={syncMode}
+            onSyncModeChange={(mode) => {
+              setSyncMode(mode);
+              localStorage.setItem('eventmaster_sync_mode', mode);
+            }}
+          />
+        )}
         {activeTab === 'master' && currentUser.is_admin && (
           <MasterMenu 
             db={db} 
@@ -724,6 +759,9 @@ const App: React.FC = () => {
           icon={<Bell size={18} className={hasUnreadMessages ? '!text-amber-400' : ''} />} 
           label="Melding" 
         />
+        {currentUser.is_admin && (
+          <MobileNavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SlidersHorizontal size={18}/>} label="Innstillinger" />
+        )}
         {currentUser.is_admin && (
           <MobileNavItem active={activeTab === 'wheel'} onClick={() => setActiveTab('wheel')} icon={<Target size={18}/>} label="Årshjul" />
         )}
