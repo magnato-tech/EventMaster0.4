@@ -29,7 +29,14 @@ interface Props {
   onCreateOccurrence: (templateId: string, date: string, time?: string) => void;
   onUpdateOccurrence: (occurrenceId: string, updates: Partial<EventOccurrence>) => void;
   onDeleteOccurrence: (occurrenceId: string) => void;
-  onCreateRecurring: (templateId: string, startDate: string, count: number, intervalDays: number) => void;
+  onCreateRecurring: (
+    templateId: string,
+    startDate: string,
+    endDate: string,
+    frequencyType: 'weekly' | 'monthly',
+    interval: number,
+    time?: string
+  ) => void;
   onAddProgramItem: (item: ProgramItem) => void;
   onUpdateProgramItem: (id: string, updates: Partial<ProgramItem>) => void;
   onReorderProgramItems: (occurrenceId: string, reorderedItems: ProgramItem[]) => void;
@@ -54,6 +61,7 @@ const CalendarView: React.FC<Props> = ({
   const [roleInstructionsId, setRoleInstructionsId] = useState<string | null>(null);
   const [isCreateOccurrenceModalOpen, setIsCreateOccurrenceModalOpen] = useState(false);
   const [isEditOccurrenceModalOpen, setIsEditOccurrenceModalOpen] = useState(false);
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [selectedDateForCreate, setSelectedDateForCreate] = useState<string>('');
   
   // Form States
@@ -66,6 +74,12 @@ const CalendarView: React.FC<Props> = ({
   const [newOccurrenceTemplateId, setNewOccurrenceTemplateId] = useState<string>('');
   const [newOccurrenceDate, setNewOccurrenceDate] = useState<string>('');
   const [newOccurrenceTime, setNewOccurrenceTime] = useState<string>('');
+  const [recTemplateId, setRecTemplateId] = useState<string>('');
+  const [recStartDate, setRecStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [recStartTime, setRecStartTime] = useState<string>('');
+  const [recEndDate, setRecEndDate] = useState<string>('');
+  const [recFrequency, setRecFrequency] = useState<'weekly' | 'biweekly' | 'triweekly' | 'quadweekly' | 'monthly'>('weekly');
+  const [recMonthWeek, setRecMonthWeek] = useState<number>(1);
   const [editOccurrenceDate, setEditOccurrenceDate] = useState<string>('');
   const [editOccurrenceTime, setEditOccurrenceTime] = useState<string>('');
   const [editOccurrenceTheme, setEditOccurrenceTheme] = useState<string>('');
@@ -77,6 +91,53 @@ const CalendarView: React.FC<Props> = ({
 
   const occurrences = [...db.eventOccurrences].sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
   const selectedOcc = db.eventOccurrences.find(o => o.id === selectedOccId);
+
+  const formatTimeForInput = (value?: string) => {
+    if (!value) return '';
+    return value.slice(0, 5);
+  };
+
+  const normalizeTimeInput = (value: string) => {
+    if (!value) return '';
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) {
+      return value.slice(0, 5);
+    }
+    return value;
+  };
+
+  const handlePlanRecurring = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recTemplateId || !recEndDate) return;
+
+    const frequencyType = recFrequency === 'monthly' ? 'monthly' : 'weekly';
+    let interval: number;
+    if (recFrequency === 'monthly') {
+      interval = recMonthWeek;
+    } else if (recFrequency === 'weekly') {
+      interval = 1;
+    } else if (recFrequency === 'biweekly') {
+      interval = 2;
+    } else if (recFrequency === 'triweekly') {
+      interval = 3;
+    } else {
+      interval = 4;
+    }
+
+    onCreateRecurring(
+      recTemplateId,
+      recStartDate,
+      recEndDate,
+      frequencyType,
+      interval,
+      recStartTime || undefined
+    );
+
+    setIsRecurringModalOpen(false);
+    setRecStartTime('');
+    setRecEndDate('');
+    setRecFrequency('weekly');
+    setRecMonthWeek(1);
+  };
 
   useEffect(() => {
     if (!focusOccurrenceId) return;
@@ -100,7 +161,7 @@ const CalendarView: React.FC<Props> = ({
   useEffect(() => {
     if (selectedOcc) {
       setEditOccurrenceDate(selectedOcc.date);
-      setEditOccurrenceTime(selectedOcc.time || '');
+      setEditOccurrenceTime(formatTimeForInput(selectedOcc.time));
       setEditOccurrenceTheme(selectedOcc.theme || '');
     }
   }, [selectedOccId]);
@@ -149,7 +210,7 @@ const CalendarView: React.FC<Props> = ({
   const handleOpenEditModal = (item: ProgramItem) => {
     setEditingProgramItem(item);
     setProgTitle(item.title);
-    setProgDuration(item.duration_minutes);
+    setProgDuration(Math.max(1, item.duration_minutes || 1));
     setProgRoleId(item.service_role_id || '');
     setProgGroupId(item.group_id || '');
     setProgPersonId(item.person_id || '');
@@ -160,11 +221,12 @@ const CalendarView: React.FC<Props> = ({
   const handleSaveProgramItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOcc || !progTitle.trim()) return;
+    const durationValue = Math.max(1, progDuration || 1);
 
     if (editingProgramItem) {
       onUpdateProgramItem(editingProgramItem.id, {
         title: progTitle,
-        duration_minutes: progDuration,
+        duration_minutes: durationValue,
         service_role_id: progRoleId || null,
         group_id: progGroupId || null,
         person_id: progPersonId || null,
@@ -177,7 +239,7 @@ const CalendarView: React.FC<Props> = ({
         occurrence_id: selectedOcc.id,
         template_id: null,
         title: progTitle,
-        duration_minutes: progDuration,
+        duration_minutes: durationValue,
         service_role_id: progRoleId || null,
         group_id: progGroupId || null,
         person_id: progPersonId || null,
@@ -301,18 +363,33 @@ const CalendarView: React.FC<Props> = ({
       {viewMode === 'list' ? (
         <div className="space-y-4">
           {isAdmin && (
-            <button 
-              onClick={() => {
-                setNewOccurrenceDate(new Date().toISOString().split('T')[0]);
-                setNewOccurrenceTime('');
-                setNewOccurrenceTemplateId(db.eventTemplates[0]?.id || '');
-                setIsCreateOccurrenceModalOpen(true);
-              }}
-              className="w-full p-4 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-400 transition-all flex items-center justify-center gap-2 text-indigo-700 font-bold"
-            >
-              <Plus size={18} />
-              Ny Arrangement
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button 
+                onClick={() => {
+                  setNewOccurrenceDate(new Date().toISOString().split('T')[0]);
+                  setNewOccurrenceTime('');
+                  setNewOccurrenceTemplateId(db.eventTemplates[0]?.id || '');
+                  setIsCreateOccurrenceModalOpen(true);
+                }}
+                className="flex-1 p-4 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-400 transition-all flex items-center justify-center gap-2 text-indigo-700 font-bold"
+              >
+                <Plus size={18} />
+                Ny Arrangement
+              </button>
+              <button
+                onClick={() => {
+                  setRecTemplateId(db.eventTemplates[0]?.id || '');
+                  setRecStartDate(new Date().toISOString().split('T')[0]);
+                  setRecStartTime('');
+                  setRecEndDate('');
+                  setIsRecurringModalOpen(true);
+                }}
+                className="flex-1 p-4 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 text-indigo-700 font-bold"
+              >
+                <Repeat size={18} />
+                Planlegg serie
+              </button>
+            </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-left">
             {occurrences.map(occ => (
@@ -489,11 +566,20 @@ const CalendarView: React.FC<Props> = ({
                       className="text-xs border border-slate-300 rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
                     />
                     <input
-                      type="time"
-                      value={editOccurrenceTime !== undefined ? editOccurrenceTime : (selectedOcc.time || '')}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="HH:mm"
+                      maxLength={5}
+                      value={editOccurrenceTime !== undefined ? editOccurrenceTime : formatTimeForInput(selectedOcc.time)}
                       onChange={(e) => {
-                        setEditOccurrenceTime(e.target.value);
-                        onUpdateOccurrence(selectedOcc.id, { time: e.target.value || undefined });
+                        const nextValue = e.target.value;
+                        setEditOccurrenceTime(nextValue);
+                        onUpdateOccurrence(selectedOcc.id, { time: nextValue || undefined });
+                      }}
+                      onBlur={(e) => {
+                        const normalized = normalizeTimeInput(e.target.value);
+                        setEditOccurrenceTime(normalized);
+                        onUpdateOccurrence(selectedOcc.id, { time: normalized || undefined });
                       }}
                       className="text-xs border border-slate-300 rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
                     />
@@ -922,9 +1008,9 @@ const CalendarView: React.FC<Props> = ({
                 <input 
                   required 
                   type="number" 
-                  min="0" 
+                  min="1" 
                   value={progDuration} 
-                  onChange={e => setProgDuration(parseInt(e.target.value) || 0)} 
+                  onChange={e => setProgDuration(Math.max(1, parseInt(e.target.value) || 1))} 
                   className="w-full px-3 py-2 border rounded-lg text-sm" 
                 />
               </div>
@@ -1045,9 +1131,13 @@ const CalendarView: React.FC<Props> = ({
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tidspunkt (valgfritt)</label>
                 <input
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:mm"
+                  maxLength={5}
                   value={newOccurrenceTime}
                   onChange={(e) => setNewOccurrenceTime(e.target.value)}
+                  onBlur={(e) => setNewOccurrenceTime(normalizeTimeInput(e.target.value))}
                   className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
               </div>
@@ -1069,6 +1159,130 @@ const CalendarView: React.FC<Props> = ({
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all"
                 >
                   Opprett
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Planlegg Serie Modal */}
+      {isRecurringModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden text-left animate-in zoom-in-95">
+            <div className="p-4 bg-indigo-700 text-white flex justify-between items-center">
+              <h3 className="text-sm font-bold uppercase tracking-tight">Planlegg serie</h3>
+              <button onClick={() => setIsRecurringModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handlePlanRecurring} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Mal</label>
+                <select
+                  required
+                  value={recTemplateId}
+                  onChange={(e) => setRecTemplateId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="">Velg mal...</option>
+                  {db.eventTemplates.map(template => (
+                    <option key={template.id} value={template.id}>{template.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Startdato</label>
+                <input
+                  required
+                  type="date"
+                  value={recStartDate}
+                  onChange={(e) => setRecStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Start tidspunkt (valgfritt)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:mm"
+                  maxLength={5}
+                  value={recStartTime}
+                  onChange={(e) => setRecStartTime(e.target.value)}
+                  onBlur={(e) => setRecStartTime(normalizeTimeInput(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Siste dato</label>
+                <input
+                  required
+                  type="date"
+                  value={recEndDate}
+                  onChange={(e) => setRecEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Frekvens</label>
+                <select
+                  value={recFrequency}
+                  onChange={(e) => setRecFrequency(e.target.value as typeof recFrequency)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="weekly">Hver uke</option>
+                  <option value="biweekly">Hver 2. uke</option>
+                  <option value="triweekly">Hver 3. uke</option>
+                  <option value="quadweekly">Hver 4. uke</option>
+                  <option value="monthly">En gang pr måned</option>
+                </select>
+              </div>
+              {recFrequency === 'monthly' ? (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Uke i måneden</label>
+                  <select
+                    value={recMonthWeek}
+                    onChange={(e) => setRecMonthWeek(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value={1}>1. uke</option>
+                    <option value={2}>2. uke</option>
+                    <option value={3}>3. uke</option>
+                    <option value={4}>4. uke</option>
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {(() => {
+                      const dayNames = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'];
+                      const startDateObj = new Date(recStartDate);
+                      const dayName = dayNames[startDateObj.getDay()];
+                      return `På ${dayName} i ${recMonthWeek === 1 ? 'første' : recMonthWeek === 2 ? 'andre' : recMonthWeek === 3 ? 'tredje' : 'fjerde'} uke av måneden`;
+                    })()}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-slate-500">
+                    {recFrequency === 'weekly' && 'Arrangementet vil opprettes hver uke på samme ukedag'}
+                    {recFrequency === 'biweekly' && 'Arrangementet vil opprettes hver 2. uke på samme ukedag'}
+                    {recFrequency === 'triweekly' && 'Arrangementet vil opprettes hver 3. uke på samme ukedag'}
+                    {recFrequency === 'quadweekly' && 'Arrangementet vil opprettes hver 4. uke på samme ukedag'}
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRecurringModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all"
+                >
+                  Opprett serie
                 </button>
               </div>
             </form>

@@ -39,6 +39,8 @@ export interface GatheringPattern {
   interval: number;
   day_of_week: number;
   start_date: string;
+  end_date?: string;
+  time?: string;
 }
 
 export interface Person {

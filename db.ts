@@ -1,6 +1,7 @@
 
 import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus, Person, CoreRole } from './types';
 import { EMPTY_DATA } from './constants';
+import { DEFAULT_EVENT_TEMPLATES } from './scripts/seedEventTemplates';
 
 const DB_KEY = 'eventmaster_lmk_db';
 const IMAGE_LIBRARY_KEY = 'eventmaster_image_library';
@@ -45,6 +46,15 @@ export const ensureAdmin = (state: AppState): AppState => {
   return {
     ...state,
     persons: nextPersons
+  };
+};
+
+const ensureEventTemplates = (state: AppState): AppState => {
+  const templates = state.eventTemplates || [];
+  if (templates.length > 0) return state;
+  return {
+    ...state,
+    eventTemplates: DEFAULT_EVENT_TEMPLATES
   };
 };
 
@@ -126,7 +136,7 @@ export const getDB = (): AppState => {
     // Ignorer feil og bruk data som normalt
   }
   
-  return ensureAdmin(parsedData);
+  return ensureEventTemplates(ensureAdmin(parsedData));
 };
 
 export const saveDB = (state: AppState) => {

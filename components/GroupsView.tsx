@@ -69,9 +69,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [newGroupLink, setNewGroupLink] = useState('');
   const [newGroupLeaderId, setNewGroupLeaderId] = useState<UUID | null>(null);
   const [newGroupMemberIds, setNewGroupMemberIds] = useState<UUID[]>([]);
-  const [newGroupDayOfWeek, setNewGroupDayOfWeek] = useState<number>(0);
   const [newGroupFrequency, setNewGroupFrequency] = useState<number>(1);
   const [newGroupStartDate, setNewGroupStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [newGroupStartTime, setNewGroupStartTime] = useState<string>('');
+  const [newGroupEndDate, setNewGroupEndDate] = useState<string>('');
   const [isDeletingGroup, setIsDeletingGroup] = useState<UUID | null>(null);
   const [isAddingMemberToGroup, setIsAddingMemberToGroup] = useState(false);
   const [memberSearchForGroup, setMemberSearchForGroup] = useState('');
@@ -202,13 +203,18 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         setEditingGroupDescription(group.description || '');
         setEditingGroupLink(group.link || '');
         if (group.gathering_pattern) {
-          setTempPattern(group.gathering_pattern);
+          const normalizedPattern = {
+            ...group.gathering_pattern,
+            day_of_week: getDayOfWeek(group.gathering_pattern.start_date)
+          };
+          setTempPattern(normalizedPattern);
         } else {
+          const startDate = new Date().toISOString().split('T')[0];
           setTempPattern({
             frequency_type: 'weeks',
             interval: 2,
-            day_of_week: 0, 
-            start_date: new Date().toISOString().split('T')[0]
+            day_of_week: getDayOfWeek(startDate),
+            start_date: startDate
           });
         }
       }
@@ -308,9 +314,18 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     }
   };
 
+  const getDayOfWeek = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day).getDay();
+  };
+
   const handleUpdateGatheringPattern = (updates: Partial<GatheringPattern>) => {
     if (!tempPattern || !manageGroupId) return;
-    const newPattern = { ...tempPattern, ...updates };
+    const nextUpdates = { ...updates };
+    if (updates.start_date) {
+      nextUpdates.day_of_week = getDayOfWeek(updates.start_date);
+    }
+    const newPattern = { ...tempPattern, ...nextUpdates };
     setTempPattern(newPattern);
     setDb(prev => ({
       ...prev,
@@ -322,10 +337,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     if (!managedGroup || !tempPattern) return;
     const newOccurrences: EventOccurrence[] = [];
     let current = new Date(tempPattern.start_date);
-    while (current.getDay() !== (tempPattern.day_of_week % 7)) {
-      current.setDate(current.getDate() + 1);
-    }
-    for (let i = 0; i < syncCount; i++) {
+    const endDate = tempPattern.end_date ? new Date(tempPattern.end_date) : null;
+    let iterations = 0;
+    while (true) {
       const dateStr = current.toISOString().split('T')[0];
       const exists = db.eventOccurrences.some(o => o.date === dateStr && o.title_override === managedGroup.name);
       if (!exists) {
@@ -333,9 +347,16 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
           id: crypto.randomUUID(),
           template_id: null,
           date: dateStr,
+          time: tempPattern.time || undefined,
           title_override: managedGroup.name,
           status: OccurrenceStatus.DRAFT
         });
+      }
+      iterations += 1;
+      if (endDate) {
+        if (current >= endDate) break;
+      } else if (iterations >= syncCount) {
+        break;
       }
       if (tempPattern.frequency_type === 'weeks') {
         current.setDate(current.getDate() + (tempPattern.interval * 7));
@@ -508,8 +529,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     const gatheringPattern: GatheringPattern | undefined = newGroupFrequency > 0 ? {
       frequency_type: 'weeks',
       interval: newGroupFrequency,
-      day_of_week: newGroupDayOfWeek,
-      start_date: newGroupStartDate
+      day_of_week: getDayOfWeek(newGroupStartDate),
+      start_date: newGroupStartDate,
+      end_date: newGroupEndDate || undefined,
+      time: newGroupStartTime || undefined
     } : undefined;
     
     const newGroup: Group = {
@@ -3112,23 +3135,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Ukedag</label>
-                    <select
-                      value={newGroupDayOfWeek}
-                      onChange={(e) => setNewGroupDayOfWeek(parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
-                    >
-                      <option value={0}>Søndag</option>
-                      <option value={1}>Mandag</option>
-                      <option value={2}>Tirsdag</option>
-                      <option value={3}>Onsdag</option>
-                      <option value={4}>Torsdag</option>
-                      <option value={5}>Fredag</option>
-                      <option value={6}>Lørdag</option>
-                    </select>
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Frekvens</label>
                     <select
                       value={newGroupFrequency}
@@ -3149,6 +3155,34 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       type="date"
                       value={newGroupStartDate}
                       onChange={(e) => setNewGroupStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Ukedag</label>
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-md bg-slate-50 text-slate-700">
+                      {['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'][getDayOfWeek(newGroupStartDate)]}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Klokkeslett</label>
+                    <input
+                      type="time"
+                      value={newGroupStartTime}
+                      onChange={(e) => setNewGroupStartTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Sluttdato</label>
+                    <input
+                      type="date"
+                      value={newGroupEndDate}
+                      onChange={(e) => setNewGroupEndDate(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
                     />
                   </div>
@@ -3321,6 +3355,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       <p>Ukedag: {['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'][viewedGroup.gathering_pattern.day_of_week]}</p>
                       <p>Frekvens: {viewedGroup.gathering_pattern.interval === 1 ? '1 gang pr uke' : `${viewedGroup.gathering_pattern.interval} uker`}</p>
                       <p>Startdato: {new Date(viewedGroup.gathering_pattern.start_date).toLocaleDateString('no-NO')}</p>
+                      {viewedGroup.gathering_pattern.time && <p>Klokkeslett: {viewedGroup.gathering_pattern.time}</p>}
+                      {viewedGroup.gathering_pattern.end_date && (
+                        <p>Sluttdato: {new Date(viewedGroup.gathering_pattern.end_date).toLocaleDateString('no-NO')}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3530,23 +3568,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     <div className="p-4 space-y-4 border-t border-slate-200">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Ukedag</label>
-                          <select
-                            value={tempPattern.day_of_week}
-                            onChange={(e) => handleUpdateGatheringPattern({ day_of_week: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
-                          >
-                            <option value={0}>Søndag</option>
-                            <option value={1}>Mandag</option>
-                            <option value={2}>Tirsdag</option>
-                            <option value={3}>Onsdag</option>
-                            <option value={4}>Torsdag</option>
-                            <option value={5}>Fredag</option>
-                            <option value={6}>Lørdag</option>
-                          </select>
-                        </div>
-
-                        <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Frekvens</label>
                           <select
                             value={tempPattern.interval}
@@ -3559,14 +3580,41 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                             <option value={4}>1 gang pr 4 uker</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Ukedag</label>
+                          <div className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-slate-50 text-slate-700">
+                            {['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'][tempPattern.day_of_week]}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Startdato</label>
+                          <input
+                            type="date"
+                            value={tempPattern.start_date}
+                            onChange={(e) => handleUpdateGatheringPattern({ start_date: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Sluttdato</label>
+                          <input
+                            type="date"
+                            value={tempPattern.end_date || ''}
+                            onChange={(e) => handleUpdateGatheringPattern({ end_date: e.target.value || undefined })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Startdato</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Klokkeslett</label>
                         <input
-                          type="date"
-                          value={tempPattern.start_date}
-                          onChange={(e) => handleUpdateGatheringPattern({ start_date: e.target.value })}
+                          type="time"
+                          value={tempPattern.time || ''}
+                          onChange={(e) => handleUpdateGatheringPattern({ time: e.target.value || undefined })}
                           className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
                         />
                       </div>

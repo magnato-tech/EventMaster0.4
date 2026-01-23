@@ -59,14 +59,21 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
       }
       const payload = await response.json();
       const nextState = normalizeBackup(payload);
+      const sanitizedState: AppState = {
+        ...nextState,
+        eventOccurrences: [],
+        changeLogs: [],
+        assignments: nextState.assignments.filter(a => !a.occurrence_id),
+        programItems: nextState.programItems.filter(p => !p.occurrence_id)
+      };
 
-      if (nextState.persons.length === 0 && nextState.groups.length === 0) {
+      if (sanitizedState.persons.length === 0 && sanitizedState.groups.length === 0) {
         throw new Error('Backup ser tom ut. Kjør "npm run seed:local" først.');
       }
 
-      onLoadBackup(nextState);
+      onLoadBackup(sanitizedState);
       setStatus('success');
-      setMessage(`Lastet backup: ${nextState.persons.length} personer, ${nextState.groups.length} grupper.`);
+      setMessage(`Lastet demo-data: ${sanitizedState.persons.length} personer, ${sanitizedState.groups.length} grupper.`);
     } catch (error) {
       console.error(error);
       setStatus('error');
@@ -219,9 +226,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
 
   const handleResetData = () => {
     if (!confirm('Dette nullstiller all lokal data. Fortsette?')) return;
-    onLoadBackup(EMPTY_DATA);
+    onLoadBackup({
+      ...EMPTY_DATA,
+      eventOccurrences: [],
+      assignments: [],
+      programItems: [],
+      changeLogs: []
+    });
     setStatus('success');
-    setMessage('Lokal data er nullstilt.');
+    setMessage('Lokal data og kalender er nullstilt.');
   };
 
   const handleClearPeople = () => {
@@ -477,6 +490,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
   const handleGenerateSuggestedData = () => {
     if (!confirm('Dette overskriver lokal data med demo-personer og familier, og laster ned backup. Fortsette?')) return;
     const nextState = buildSuggestedDataset();
+    nextState.eventOccurrences = [];
+    nextState.changeLogs = [];
     onLoadBackup(nextState);
     downloadPayload({
       ...nextState,
@@ -506,17 +521,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
       persons,
       families,
       familyMembers,
-      serviceRoles
+      serviceRoles,
+      eventTemplates: POPULATED_DATA.eventTemplates,
+      assignments: POPULATED_DATA.assignments,
+      programItems: POPULATED_DATA.programItems,
+      eventOccurrences: [],
+      changeLogs: []
     };
-
-    const { groups, groupMembers, groupServiceRoles } = buildSuggestedGroups(persons, serviceRoles);
-    nextState.groups = groups;
-    nextState.groupMembers = groupMembers;
-    nextState.groupServiceRoles = groupServiceRoles;
 
     onLoadBackup(nextState);
     setStatus('success');
-    setMessage(`Genererte ${persons.length} personer, ${families.length} familier${customIncludeGroups ? ` og ${nextState.groups.length} grupper` : ''}.`);
+    setMessage(`Genererte ${persons.length} personer og ${families.length} familier.`);
   };
 
   const handleGenerateGroupsOnly = () => {

@@ -294,6 +294,13 @@ const App: React.FC = () => {
     });
   };
 
+  const normalizeTime = (value?: string) => {
+    if (!value) return undefined;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(value)) return value.slice(0, 5);
+    if (/^\d{2}:\d{2}$/.test(value)) return value;
+    return undefined;
+  };
+
   const handleCreateOccurrence = (templateId: string, date: string, time?: string) => {
     const newId = crypto.randomUUID();
     const template = db.eventTemplates.find(t => t.id === templateId);
@@ -301,7 +308,7 @@ const App: React.FC = () => {
       id: newId,
       template_id: templateId,
       date,
-      time,
+      time: normalizeTime(time),
       status: OccurrenceStatus.DRAFT,
       color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
     };
@@ -320,7 +327,9 @@ const App: React.FC = () => {
     setDb(prev => ({
       ...prev,
       eventOccurrences: prev.eventOccurrences.map(occ => 
-        occ.id === occurrenceId ? { ...occ, ...updates } : occ
+        occ.id === occurrenceId
+          ? { ...occ, ...updates, time: normalizeTime(updates.time ?? occ.time) }
+          : occ
       )
     }));
   };
@@ -431,6 +440,7 @@ const App: React.FC = () => {
       }
     }
     
+    const normalizedTime = normalizeTime(time);
     // Create occurrences
     const template = db.eventTemplates.find(t => t.id === templateId);
     occurrences.forEach(({ date }) => {
@@ -443,7 +453,7 @@ const App: React.FC = () => {
           id: newId,
           template_id: templateId,
           date: dateStr,
-          time,
+          time: normalizedTime,
           status: OccurrenceStatus.DRAFT,
           color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
         };
