@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Person, CoreRole } from '../types';
-import { Search, User } from 'lucide-react';
+import { Search } from 'lucide-react';
+import PersonAvatar from './PersonAvatar';
 
 interface Props {
   persons: Person[];
@@ -10,7 +11,7 @@ interface Props {
 
 const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
   const [search, setSearch] = useState('');
-  const canLoadSeed = import.meta.env.DEV;
+  const canLoadSeed = import.meta.env.DEV || persons.length === 0;
 
   const filtered = persons.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) && p.is_active
@@ -31,20 +32,20 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
     try {
       const response = await fetch('/master_data_backup.json', { cache: 'no-store' });
       if (!response.ok) {
-        alert('Fant ingen seed-data. Kjør "npm run seed:local" først.');
+        alert('Fant ingen demo-data. Kjør "npm run seed:local" først.');
         return;
       }
       const payload = await response.json();
       const hasSeedData = Array.isArray(payload?.persons) && payload.persons.length > 0;
       if (!hasSeedData) {
-        alert('Seed-data er tom. Kjør "npm run seed:local" først.');
+        alert('Demo-data er tom. Kjør "npm run seed:local" først.');
         return;
       }
       localStorage.setItem(dbKey, JSON.stringify(payload));
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert('Kunne ikke laste seed-data.');
+      alert('Kunne ikke laste demo-data.');
     }
   };
 
@@ -75,9 +76,7 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
                 onClick={() => onSelect(person)}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-transparent hover:border-indigo-100 hover:bg-indigo-50 transition-all group"
               >
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors">
-                  <User size={20} />
-                </div>
+                <PersonAvatar person={person} size={40} className="border border-slate-200 group-hover:border-indigo-200" />
                 <div className="text-left">
                   <p className="font-semibold text-slate-800">{person.name}</p>
                   <p className="text-xs text-slate-500">{getCoreRoleLabel(person.core_role)}</p>
@@ -94,7 +93,7 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
               onClick={loadSeedData}
               className="mt-6 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-100 transition-colors border border-indigo-100"
             >
-              Last inn seed-data
+              Last inn demo-data
             </button>
           )}
 

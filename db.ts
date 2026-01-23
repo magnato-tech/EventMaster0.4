@@ -1,9 +1,52 @@
 
-import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus, Person } from './types';
+import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus, Person, CoreRole } from './types';
 import { EMPTY_DATA } from './constants';
 
 const DB_KEY = 'eventmaster_lmk_db';
 const IMAGE_LIBRARY_KEY = 'eventmaster_image_library';
+const DEFAULT_ADMIN_ID = 'admin-magnar';
+const DEFAULT_ADMIN_NAME = 'Magnar';
+
+const DEFAULT_ADMIN: Person = {
+  id: DEFAULT_ADMIN_ID,
+  name: DEFAULT_ADMIN_NAME,
+  is_admin: true,
+  is_active: true,
+  core_role: CoreRole.ADMIN
+};
+
+export const ensureAdmin = (state: AppState): AppState => {
+  const persons = state.persons || [];
+  let updated = false;
+
+  const nextPersons = persons.map(person => {
+    const isMagnar = person.id === DEFAULT_ADMIN_ID || person.name?.toLowerCase() === DEFAULT_ADMIN_NAME.toLowerCase();
+    if (!isMagnar) return person;
+    if (person.is_admin && person.is_active && person.core_role === CoreRole.ADMIN) return person;
+    updated = true;
+    return {
+      ...person,
+      is_admin: true,
+      is_active: true,
+      core_role: CoreRole.ADMIN
+    };
+  });
+
+  const hasMagnar = nextPersons.some(
+    person => person.id === DEFAULT_ADMIN_ID || person.name?.toLowerCase() === DEFAULT_ADMIN_NAME.toLowerCase()
+  );
+
+  if (!hasMagnar) {
+    updated = true;
+    nextPersons.unshift(DEFAULT_ADMIN);
+  }
+
+  if (!updated) return state;
+  return {
+    ...state,
+    persons: nextPersons
+  };
+};
 
 // Hjelpefunksjon for å sanere fødselsdatoer til ISO-format (YYYY-MM-DD)
 const sanitizeBirthDate = (date: string | undefined | null): string | undefined => {
@@ -83,7 +126,7 @@ export const getDB = (): AppState => {
     // Ignorer feil og bruk data som normalt
   }
   
-  return parsedData;
+  return ensureAdmin(parsedData);
 };
 
 export const saveDB = (state: AppState) => {

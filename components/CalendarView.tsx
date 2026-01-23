@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppState, EventOccurrence, ServiceRole, UUID, ProgramItem, GroupCategory, Person, CoreRole, GroupRole } from '../types';
 import { ChevronLeft, ChevronRight, Plus, UserPlus, X, Trash2, ListChecks, Info, CheckCircle2, Calendar as CalendarIcon, Repeat, LayoutGrid, List as ListIcon, Clock, Users, User, Shield, AlertTriangle, RefreshCw, UserCheck, Sparkles, ArrowRight, Library, GripVertical, Edit2, History } from 'lucide-react';
+import PersonAvatar from './PersonAvatar';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
 const parseLocalDate = (dateString: string): Date => {
@@ -808,9 +809,15 @@ const CalendarView: React.FC<Props> = ({
                       const actor = db.persons.find(p => p.id === log.actor_id);
                       return (
                         <div key={log.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-start gap-4">
-                           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200">
-                             <User size={14} className="text-slate-400" />
-                           </div>
+                          <div className="shrink-0">
+                            {actor ? (
+                              <PersonAvatar person={actor} size={32} className="border border-slate-200" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-200">
+                                <User size={14} className="text-slate-400" />
+                              </div>
+                            )}
+                          </div>
                            <div>
                               <p className="text-sm text-slate-700 font-medium">{log.description}</p>
                               <p className="text-[10px] text-slate-400 font-bold mt-1">

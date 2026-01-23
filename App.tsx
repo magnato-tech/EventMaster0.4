@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Person, GroupCategory, EventOccurrence, ProgramItem, Assignment, UUID, GroupRole, Task, NoticeMessage, CoreRole, ChangeLog, OccurrenceStatus } from './types';
-import { getDB, saveDB, performBulkCopy, downloadPersonsAndGroups, exportPersonsAndGroups } from './db';
+import { getDB, saveDB, performBulkCopy, downloadPersonsAndGroups, exportPersonsAndGroups, ensureAdmin } from './db';
 import { queueSupabaseSync } from './lib/supabaseSync';
 import IdentityPicker from './components/IdentityPicker';
 import Dashboard from './components/Dashboard';
@@ -508,7 +508,7 @@ const App: React.FC = () => {
   };
 
   const handleLoadBackup = (state: AppState) => {
-    setDb(state);
+    setDb(ensureAdmin(state));
     setCurrentUser(null);
     setActiveTab('dashboard');
   };

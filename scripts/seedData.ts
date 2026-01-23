@@ -106,76 +106,59 @@ const LAST_NAMES = [
   'Moe', 'Strand', 'Lunde', 'Holm', 'Aas', 'Sørensen', 'Myklebust', 'Vik', 'Sandvik', 'Lie'
 ];
 
-// Funksjon for å generere 45 personer med riktig geografisk fordeling
-const generate45Persons = (): Person[] => {
+export const DEMO_MAX_PEOPLE = 200;
+
+export const generatePersons = (
+  count: number,
+  startIndex = 1,
+  makeFirstAdmin = false,
+  minAge = 5,
+  maxAge = 74
+): Person[] => {
   const persons: Person[] = [];
-  let personCounter = 1;
   const usedNames = new Set<string>();
-  
-  // Geografisk fordeling: 70% Lillesand (32), 10% hver av de andre (4-5 hver)
-  const distribution = [
-    ...Array(32).fill(LOCATIONS.lillesand),  // 32 personer i Lillesand
-    ...Array(5).fill(LOCATIONS.hovag),       // 5 personer i Høvåg
-    ...Array(4).fill(LOCATIONS.birkeland),   // 4 personer i Birkeland
-    ...Array(4).fill(LOCATIONS.grimstad)    // 4 personer i Grimstad
-  ];
-  
-  // Blande distribusjonen for tilfeldig rekkefølge
-  for (let i = distribution.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [distribution[i], distribution[j]] = [distribution[j], distribution[i]];
-  }
-  
-  // Generer personer
-  distribution.forEach((location, index) => {
-    const personId = `p${personCounter++}`;
-    
-    // Velg unikt navn (unngå duplikater)
-    let name: string;
-    let attempts = 0;
-    do {
-      const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-      const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-      name = `${firstName} ${lastName}`;
-      attempts++;
-    } while (usedNames.has(name) && attempts < 100);
-    usedNames.add(name);
-    
-    // Generer fødselsdato (blanding av voksne og barn)
-    let birthYear: number;
-    if (index < 10) {
-      // 10 barn (2008-2025)
-      birthYear = Math.floor(Math.random() * 18) + 2008; // 2008-2025
-    } else if (index < 25) {
-      // 15 voksne (1970-1995)
-      birthYear = Math.floor(Math.random() * 26) + 1970;
-    } else {
-      // 20 voksne (1980-2000)
-      birthYear = Math.floor(Math.random() * 21) + 1980;
+
+  for (let i = 0; i < count; i += 1) {
+    const location = getRandomLocation();
+    const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    let fullName = `${firstName} ${lastName}`;
+    let suffix = 2;
+    while (usedNames.has(fullName)) {
+      fullName = `${firstName} ${lastName} ${suffix}`;
+      suffix += 1;
     }
-    
+    usedNames.add(fullName);
+
+    const ageRange = Math.max(0, maxAge - minAge);
+    const age = Math.floor(Math.random() * (ageRange + 1)) + minAge;
+    const birthYear = new Date().getFullYear() - age;
     const address = generateAddressForLocation(location);
-    
+
     persons.push({
-      id: personId,
-      name,
-      email: generateEmail(name),
+      id: `p${startIndex + i}`,
+      name: fullName,
+      email: generateEmail(fullName),
       phone: generatePhoneNumber(),
+      birth_year: birthYear,
       birth_date: generateRandomBirthDate(birthYear),
       streetAddress: address.streetAddress,
       postalCode: address.postalCode,
       city: address.city,
-      is_admin: index === 0, // Første person er admin
+      is_admin: makeFirstAdmin && i === 0,
       is_active: true,
-      core_role: index === 0 ? CoreRole.ADMIN : (index < 5 ? CoreRole.TEAM_LEADER : CoreRole.MEMBER)
+      core_role: makeFirstAdmin && i === 0 ? CoreRole.ADMIN : CoreRole.MEMBER
     });
-  });
-  
+  }
+
   return persons;
 };
 
-// Generer 45 personer
-const generatedPersons = generate45Persons();
+const SINGLE_ADULT_COUNT = 20;
+const FAMILY_COUNT = 20;
+
+// Generer 20 voksne singler (admin inkludert)
+const generatedPersons = generatePersons(SINGLE_ADULT_COUNT, 1, true, 19, 75);
 
 export const INITIAL_DATA: AppState = {
   persons: generatedPersons,
@@ -396,55 +379,77 @@ export const INITIAL_DATA: AppState = {
   familyMembers: []
 };
 
-// JSON-data for familier
-const FAMILY_DATA = [
-  {
-    "familieNavn": "Lovsang",
-    "voksne": [
-      { "navn": "Lise Lovsang", "rolle": "Lovsang", "sivilstand": "Gift med Lars", "instruks": "Leder lovsangsteamet" },
-      { "navn": "Lars Lyd", "rolle": "Lyd", "sivilstand": "Gift med Lise", "instruks": "Ansvarlig for FOH og lydsjekk" }
-    ],
-    "barn": [
-      { "navn": "Lille-Lise Jr.", "alder": 5, "avdeling": "Barnekirke (Småbarn)" },
-      { "navn": "Lukas Lovsang", "alder": 8, "avdeling": "Barnekirke (Skolebarn)" }
-    ]
-  },
-  {
-    "familieNavn": "Møtevert",
-    "voksne": [
-      { "navn": "Morten Møtevert", "rolle": "Møteleder", "sivilstand": "Gift med Vigdis", "instruks": "Sy sammen gudstjenesten" },
-      { "navn": "Vigdis Vertskap", "rolle": "Møtevert", "sivilstand": "Gift med Morten", "instruks": "Velkomst og nattverd" }
-    ],
-    "barn": [
-      { "navn": "Marius Møtevert", "alder": 12, "avdeling": "Tweens" },
-      { "navn": "Mille Møtevert", "alder": 3, "avdeling": "Barnekirke (Knøtt)" },
-      { "navn": "Mats Møtevert", "alder": 6, "avdeling": "Barnekirke (Skolebarn)" }
-    ]
-  },
-  {
-    "familieNavn": "Barnekirke/Bilde",
-    "voksne": [
-      { "navn": "Beate Barnekirke", "rolle": "Barnekirke", "sivilstand": "Gift med Bjarne", "instruks": "Ansvarlig for barnas samling" },
-      { "navn": "Bjarne Bilde", "rolle": "Bilde", "sivilstand": "Gift med Beate", "instruks": "Styring av tekst og skjerm" }
-    ],
-    "barn": [
-      { "navn": "Benny Barnekirke", "alder": 10, "avdeling": "Barnekirke (Skolebarn)" }
-    ]
-  },
-  {
-    "familieNavn": "Taler/Forbønn",
-    "voksne": [
-      { "navn": "Thomas Taler", "rolle": "Taler", "sivilstand": "Gift med Frida", "instruks": "Dagens undervisning" },
-      { "navn": "Frida Forbønn", "rolle": "Forbønn", "sivilstand": "Gift med Thomas", "instruks": "Bistå ved bønnestasjoner" }
-    ],
-    "barn": [
-      { "navn": "Thea Taler", "alder": 7, "avdeling": "Barnekirke (Skolebarn)" },
-      { "navn": "Tobias Taler", "alder": 4, "avdeling": "Barnekirke (Knøtt)" },
-      { "navn": "Tiril Taler", "alder": 2, "avdeling": "Småbarn" },
-      { "navn": "Teodor Taler", "alder": 9, "avdeling": "Barnekirke (Skolebarn)" }
-    ]
+type FamilySeed = {
+  familieNavn: string;
+  voksne: { navn: string; rolle: string; sivilstand: string; instruks: string }[];
+  barn: { navn: string; alder: number; avdeling: string }[];
+};
+
+const getChildDepartment = (age: number) => {
+  if (age <= 3) return 'Småbarn';
+  if (age <= 6) return 'Barnekirke (Knøtt)';
+  if (age <= 10) return 'Barnekirke (Skolebarn)';
+  if (age <= 12) return 'Tweens';
+  return 'Ungdom';
+};
+
+const generateFamilyData = (familyCount: number): FamilySeed[] => {
+  const childCounts = Array.from({ length: familyCount }, (_, idx) => idx % 5); // 0-4, snitt 2
+  for (let i = childCounts.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [childCounts[i], childCounts[j]] = [childCounts[j], childCounts[i]];
   }
-];
+
+  const usedFamilyNames = new Set<string>();
+  const familyData: FamilySeed[] = [];
+
+  for (let i = 0; i < familyCount; i += 1) {
+    let familyName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    while (usedFamilyNames.has(familyName)) {
+      familyName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    }
+    usedFamilyNames.add(familyName);
+
+    const adult1 = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const adult2 = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const voksne = [
+      {
+        navn: `${adult1} ${familyName}`,
+        rolle: 'Forelder',
+        sivilstand: `Gift med ${adult2}`,
+        instruks: 'Ansvarlig i familien'
+      },
+      {
+        navn: `${adult2} ${familyName}`,
+        rolle: 'Forelder',
+        sivilstand: `Gift med ${adult1}`,
+        instruks: 'Ansvarlig i familien'
+      }
+    ];
+
+    const barnCount = childCounts[i];
+    const barn = Array.from({ length: barnCount }, () => {
+      const childName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+      const age = Math.floor(Math.random() * 13) + 1; // 1-13
+      return {
+        navn: `${childName} ${familyName}`,
+        alder: age,
+        avdeling: getChildDepartment(age)
+      };
+    });
+
+    familyData.push({
+      familieNavn: familyName,
+      voksne,
+      barn
+    });
+  }
+
+  return familyData;
+};
+
+// JSON-data for familier
+const FAMILY_DATA = generateFamilyData(FAMILY_COUNT);
 
 // Funksjon for å populere familiedata
 function populateFamilyData(baseData: AppState): AppState {
