@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Person, GroupCategory, EventOccurrence, ProgramItem, Assignment, UUID, GroupRole, Task, NoticeMessage, CoreRole, ChangeLog, OccurrenceStatus } from './types';
 import { getDB, saveDB, performBulkCopy, downloadPersonsAndGroups, exportPersonsAndGroups } from './db';
+import { queueSupabaseSync } from './lib/supabaseSync';
 import IdentityPicker from './components/IdentityPicker';
 import Dashboard from './components/Dashboard';
 import DashboardView from './components/DashboardView';
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
   const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
   const [calendarFocusOccurrenceId, setCalendarFocusOccurrenceId] = useState<UUID | null>(null);
+  const hasHydratedSync = useRef(false);
 
   useEffect(() => {
     saveDB(db);
@@ -37,6 +39,14 @@ const App: React.FC = () => {
       (window as any).downloadPersonsAndGroups = downloadPersonsAndGroups;
     }
   }, [db]);
+
+  useEffect(() => {
+    if (!hasHydratedSync.current) {
+      hasHydratedSync.current = true;
+      return;
+    }
+    queueSupabaseSync(db);
+  }, [db.persons, db.groups, db.groupMembers]);
 
   useEffect(() => {
     if (!currentUser) return;
