@@ -8,6 +8,8 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1OjT8DMP3XKh5sBkIkmxBxQCrKQclldHX
 
+Production: https://event-master0-6.vercel.app/
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
