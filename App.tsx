@@ -232,6 +232,14 @@ const App: React.FC = () => {
     });
   };
 
+  const handleDeleteAssignment = (id: string) => {
+    if (!confirm('Vil du slette denne tilleggsvakten?')) return;
+    setDb(prev => ({
+      ...prev,
+      assignments: prev.assignments.filter(a => a.id !== id)
+    }));
+  };
+
   const handleAddAssignment = (occurrenceId: string, roleId: string) => {
     setDb(prev => {
       const defaultPersonId = findRecommendedPerson(roleId, prev);
@@ -674,6 +682,7 @@ const App: React.FC = () => {
               onFocusHandled={() => setCalendarFocusOccurrenceId(null)}
             onUpdateAssignment={handleUpdateAssignment}
             onAddAssignment={handleAddAssignment}
+            onDeleteAssignment={handleDeleteAssignment}
             onSyncStaffing={() => {}} // Nå automatisk
             onCreateOccurrence={handleCreateOccurrence}
             onUpdateOccurrence={handleUpdateOccurrence}

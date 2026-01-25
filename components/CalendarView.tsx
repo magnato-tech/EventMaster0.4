@@ -25,6 +25,7 @@ interface Props {
   isAdmin: boolean;
   onUpdateAssignment: (id: string, personId: string | null) => void;
   onAddAssignment: (occurrenceId: string, roleId: string) => void;
+  onDeleteAssignment: (id: string) => void;
   onSyncStaffing: (occurrenceId: string) => void;
   onCreateOccurrence: (templateId: string, date: string, time?: string) => void;
   onUpdateOccurrence: (occurrenceId: string, updates: Partial<EventOccurrence>) => void;
@@ -46,7 +47,7 @@ interface Props {
 }
 
 const CalendarView: React.FC<Props> = ({ 
-  db, isAdmin, onUpdateAssignment, onAddAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
+  db, isAdmin, onUpdateAssignment, onAddAssignment, onDeleteAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
   onAddProgramItem, onUpdateProgramItem, onReorderProgramItems, onDeleteProgramItem, focusOccurrenceId, onFocusHandled
 }) => {
   const [selectedOccId, setSelectedOccId] = useState<string | null>(null);
@@ -789,7 +790,19 @@ const CalendarView: React.FC<Props> = ({
                                     )}
                                   </div>
                                 </div>
-                                {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                                <div className="flex items-center gap-2">
+                                  {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteAssignment(assign.id)}
+                                      className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                                      title="Slett tilleggsvakt"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
                                 {person?.name || 'Ledig vakt'}
