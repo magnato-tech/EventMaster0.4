@@ -318,6 +318,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
     addGroup('team-vertskap', 'Vertskap', GroupCategory.SERVICE);
     addGroup('team-forbonn', 'Forbønn', GroupCategory.SERVICE);
     addGroup('team-rigg', 'Rigg', GroupCategory.SERVICE);
+    addGroup('team-markedsforing', 'Markedsføring', GroupCategory.SERVICE);
 
     addGroup('hus-menn-1', 'Husgruppe Menn 1', GroupCategory.FELLOWSHIP);
     addGroup('hus-menn-2', 'Husgruppe Menn 2', GroupCategory.FELLOWSHIP);
@@ -392,6 +393,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
     addGroupServiceRole('team-vertskap', 'kjøkken');
     addGroupServiceRole('team-forbonn', 'forbønn');
     addGroupServiceRole('team-rigg', 'rigg');
+    addGroupServiceRole('team-markedsforing', 'markedsføring');
     addGroupServiceRole(barnekirkeId, 'barnekirke');
 
     return { groups, groupMembers, groupServiceRoles };
@@ -595,13 +597,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
   const handleFetchFromSupabase = async () => {
     if (!supabase) {
       setStatus('error');
-      setMessage('Supabase er ikke konfigurert.');
+      setMessage('Supabase er ikke konfigurert. Sjekk VITE_SUPABASE_URL og VITE_SUPABASE_ANON_KEY i .env.');
       return;
     }
     if (!confirm('Dette vil overskrive lokal data med Supabase-innhold. Fortsette?')) return;
 
     setStatus('loading');
-    setMessage('');
+    setMessage('Henter data...');
 
     try {
       const [personsResult, groupsResult, membersResult] = await Promise.all([
@@ -610,16 +612,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
         supabase.from(supabaseTables.groupMembers).select('*')
       ]);
 
-      if (personsResult.error || groupsResult.error || membersResult.error) {
-        throw new Error('Kunne ikke hente data fra Supabase.');
-      }
+      if (personsResult.error) throw personsResult.error;
+      if (groupsResult.error) throw groupsResult.error;
+      if (membersResult.error) throw membersResult.error;
 
       const persons = (personsResult.data || []).map(mapPerson);
       const groups = (groupsResult.data || []).map(mapGroup);
       const groupMembers = (membersResult.data || []).map(mapGroupMember);
 
+      const current = readLocalState();
       const nextState: AppState = {
-        ...EMPTY_DATA,
+        ...current,
         persons,
         groups,
         groupMembers
@@ -637,12 +640,34 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
 
   return (
     <div className="space-y-6 max-w-[900px] mx-auto pb-20 md:pb-8 animate-in fade-in duration-300 text-left">
-      <header className="border-b border-slate-200 pb-3 flex items-center gap-3">
-        <Database size={20} className="text-indigo-600" />
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Innstillinger</h2>
-          <p className="text-xs text-slate-500 font-medium">Lokal backup og utviklingsverktøy.</p>
+      <header className="border-b border-slate-200 pb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Database size={20} className="text-indigo-600" />
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Innstillinger</h2>
+            <p className="text-xs text-slate-500 font-medium">Lokal backup og utviklingsverktøy.</p>
+          </div>
         </div>
+
+        {status !== 'idle' && (
+          <div className={`px-4 py-2 rounded-lg text-xs font-semibold animate-in slide-in-from-top-2 duration-300 ${
+            status === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+            status === 'error' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+            'bg-indigo-50 text-indigo-700 border border-indigo-200'
+          }`}>
+            {status === 'loading' ? (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <span>Jobber...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>{message}</span>
+                <button onClick={() => setStatus('idle')} className="ml-2 hover:opacity-70">✕</button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">

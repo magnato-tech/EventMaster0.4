@@ -168,7 +168,8 @@ const FUN_ROLE_NAMES = [
   { name: 'Randi Rigging', roleId: 'sr8' },
   { name: 'Pia Pynting', roleId: 'sr12' },
   { name: 'Lasse Lyd', roleId: 'sr6' },
-  { name: 'Bente Bilde', roleId: 'sr7' }
+  { name: 'Bente Bilde', roleId: 'sr7' },
+  { name: 'Mette Markedsføring', roleId: 'sr13' }
 ];
 
 // Generer 20 voksne singler (admin inkludert)
@@ -184,8 +185,19 @@ const generatedPersons = generatePersons(SINGLE_ADULT_COUNT, 1, true, 19, 75).ma
 
 export const INITIAL_DATA: AppState = {
   persons: generatedPersons,
-  groups: [],
-  groupMembers: [],
+  groups: [
+    { id: 'g1', name: 'Lovsangsteam', category: GroupCategory.SERVICE, leaderId: 'p5' },
+    { id: 'g2', name: 'Teknikkteam', category: GroupCategory.SERVICE },
+    { id: 'g3', name: 'Vertskapsteam', category: GroupCategory.SERVICE },
+    { id: 'g4', name: 'Lederskap', category: GroupCategory.STRATEGY },
+    { id: 'g5', name: 'Barnekirketeam', category: GroupCategory.SERVICE },
+    { id: 'g6', name: 'Markedsføring', category: GroupCategory.SERVICE },
+  ],
+  groupMembers: [
+    { id: 'gm1', group_id: 'g4', person_id: 'p1', role: GroupRole.LEADER },
+    { id: 'gm2', group_id: 'g1', person_id: 'p5', role: GroupRole.LEADER },
+    { id: 'gm3', group_id: 'g6', person_id: 'p11', role: GroupRole.LEADER },
+  ],
   serviceRoles: [
     {
       id: 'sr1',
@@ -355,6 +367,20 @@ export const INITIAL_DATA: AppState = {
         'Rigge ned pynt og rydde opp'
       ],
       is_active: true
+    },
+    {
+      id: 'sr13',
+      name: 'Markedsføring',
+      default_instructions: [
+        'a. Sosiale medier',
+        '• Lage arrangementer på Facebook:',
+        '  – Gudstjenester: så fort som mulig etter forrige gudstjeneste',
+        '  – Andre arrangementer: fjorten dager før',
+        '• Poste på Facebook og Messenger-chat om ting som skjer – senest fredagen når det skjer noe på søndagen (f.eks. bønn og lovsang)',
+        'b. Informasjonsformidling',
+        '• Sende inn info om arrangementer til By og Bygd – senest onsdag før arrangementet'
+      ],
+      is_active: true
     }
   ],
   groupServiceRoles: [
@@ -366,6 +392,7 @@ export const INITIAL_DATA: AppState = {
     { id: 'gsr6', group_id: 'g3', service_role_id: 'sr10', is_active: true },
     { id: 'gsr7', group_id: 'g2', service_role_id: 'sr7', is_active: true },
     { id: 'gsr8', group_id: 'g5', service_role_id: 'sr4', is_active: true },
+    { id: 'gsr9', group_id: 'g6', service_role_id: 'sr13', is_active: true },
   ],
   eventTemplates: DEFAULT_EVENT_TEMPLATES,
   eventOccurrences: [],
@@ -381,25 +408,26 @@ export const INITIAL_DATA: AppState = {
     { id: 'a9', template_id: 't1', service_role_id: 'sr6', person_id: 'p9' }, // Lyd
     { id: 'a10', template_id: 't1', service_role_id: 'sr7', person_id: 'p10' }, // Bilde
     { id: 'a11', template_id: 't1', service_role_id: 'sr10', person_id: null }, // Kjøkken
+    { id: 'a12', template_id: 't1', service_role_id: 'sr13', person_id: 'p11' }, // Markedsføring
   ],
   programItems: [
     { id: 'pi0', template_id: 't1', title: 'Velkommen ved inngang', duration_minutes: 15, service_role_id: 'sr9', person_id: 'p6', order: 0 },
-    { id: 'pi1', template_id: 't1', title: 'Lovsang x2', duration_minutes: 7, service_role_id: 'sr5', person_id: 'p5', order: 1 },
+    { id: 'pi1', template_id: 't1', title: 'Lovsang x2', duration_minutes: 7, service_role_id: 'sr5', group_id: 'g1', person_id: 'p5', order: 1 },
     { id: 'pi2', template_id: 't1', title: 'Velkommen. Åpningsord', duration_minutes: 3, service_role_id: 'sr1', person_id: 'p1', order: 2, description: 'Dagens tema' },
     { id: 'pi3', template_id: 't1', title: 'Bønn', duration_minutes: 2, service_role_id: 'sr1', person_id: 'p1', order: 3 },
     { id: 'pi4', template_id: 't1', title: 'Kunngjøringer', duration_minutes: 3, service_role_id: 'sr1', person_id: 'p1', order: 4 },
-    { id: 'pi5', template_id: 't1', title: 'Lovsang x3', duration_minutes: 10, service_role_id: 'sr5', person_id: 'p5', order: 5 },
+    { id: 'pi5', template_id: 't1', title: 'Lovsang x3', duration_minutes: 10, service_role_id: 'sr5', group_id: 'g1', person_id: 'p5', order: 5 },
     { id: 'pi6', template_id: 't1', title: 'Barnekirke', duration_minutes: 2, service_role_id: 'sr4', person_id: 'p4', order: 6, description: 'Barna går til sin samling' },
     { id: 'pi7', template_id: 't1', title: 'Kaffe / te-påfyll', duration_minutes: 8, service_role_id: 'sr9', person_id: 'p6', order: 7 },
     { id: 'pi8', template_id: 't1', title: 'Bønn før tale', duration_minutes: 2, service_role_id: 'sr1', person_id: 'p1', order: 8, description: 'Forbønn for taler' },
     { id: 'pi9', template_id: 't1', title: 'Tale / undervisning', duration_minutes: 20, service_role_id: 'sr2', person_id: 'p2', order: 9 },
-    { id: 'pi10', template_id: 't1', title: 'Lovsang', duration_minutes: 5, service_role_id: 'sr5', person_id: 'p5', order: 10 },
+    { id: 'pi10', template_id: 't1', title: 'Lovsang', duration_minutes: 5, service_role_id: 'sr5', group_id: 'g1', person_id: 'p5', order: 10 },
     { id: 'pi11', template_id: 't1', title: 'Nattverd og presentasjon av bønnestasjoner (3 stk)', duration_minutes: 8, order: 11 },
     { id: 'pi12', template_id: 't1', title: 'Forbønn', duration_minutes: 7, service_role_id: 'sr3', person_id: 'p3', order: 12 },
     { id: 'pi13', template_id: 't1', title: 'Kollekt', duration_minutes: 2, service_role_id: 'sr1', person_id: 'p1', order: 13, description: 'Vipps-skjerm under lovsang' },
-    { id: 'pi14', template_id: 't1', title: 'Lovsang x2', duration_minutes: 7, service_role_id: 'sr5', person_id: 'p5', order: 14 },
+    { id: 'pi14', template_id: 't1', title: 'Lovsang x2', duration_minutes: 7, service_role_id: 'sr5', group_id: 'g1', person_id: 'p5', order: 14 },
     { id: 'pi15', template_id: 't1', title: 'Velsignelsen', duration_minutes: 1, service_role_id: 'sr1', person_id: 'p1', order: 15 },
-    { id: 'pi16', template_id: 't1', title: 'Lovsang (avslutningssang)', duration_minutes: 2, service_role_id: 'sr5', person_id: 'p5', order: 16 },
+    { id: 'pi16', template_id: 't1', title: 'Lovsang (avslutningssang)', duration_minutes: 2, service_role_id: 'sr5', group_id: 'g1', person_id: 'p5', order: 16 },
     { id: 'pi17', template_id: 't1', title: 'Kirkekaffe', duration_minutes: 0, service_role_id: 'sr9', person_id: 'p6', order: 17 },
   ],
   tasks: [], // Vil bli populert av generateYearlyWheelTasks()

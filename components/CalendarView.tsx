@@ -379,10 +379,19 @@ const CalendarView: React.FC<Props> = ({
               </button>
               <button
                 onClick={() => {
+                  const today = new Date();
+                  const daysUntilSunday = (7 - today.getDay()) % 7;
+                  const nextSunday = new Date(today);
+                  nextSunday.setDate(today.getDate() + daysUntilSunday);
+                  
+                  const endDate = new Date(nextSunday);
+                  endDate.setMonth(nextSunday.getMonth() + 2);
+
                   setRecTemplateId(db.eventTemplates[0]?.id || '');
-                  setRecStartDate(new Date().toISOString().split('T')[0]);
-                  setRecStartTime('');
-                  setRecEndDate('');
+                  setRecStartDate(formatLocalDate(nextSunday));
+                  setRecStartTime('11:00');
+                  setRecEndDate(formatLocalDate(endDate));
+                  setRecFrequency('weekly');
                   setIsRecurringModalOpen(true);
                 }}
                 className="flex-1 p-4 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 text-indigo-700 font-bold"
@@ -792,24 +801,21 @@ const CalendarView: React.FC<Props> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {!person && <AlertTriangle size={12} className="text-amber-500" />}
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onDeleteAssignment(assign.id)}
-                                      className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                                      title="Slett tilleggsvakt"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  )}
                                 </div>
                               </div>
                               <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
                                 {person?.name || 'Ledig vakt'}
                               </p>
-                              <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold uppercase tracking-tighter rounded w-fit">
-                                Fra kjøreplan
-                              </span>
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold uppercase tracking-tighter rounded w-fit">
+                                  Fra kjøreplan
+                                </span>
+                                {isAdmin && (
+                                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                                    <span className="text-[9px] text-slate-400 font-medium italic">Endres i kjøreplan</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -862,7 +868,19 @@ const CalendarView: React.FC<Props> = ({
                                     )}
                                   </div>
                                 </div>
-                                {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                                <div className="flex items-center gap-2">
+                                  {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteAssignment(assign.id)}
+                                      className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Slett tilleggsvakt"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
                                 {person?.name || 'Ledig vakt'}

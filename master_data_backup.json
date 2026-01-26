@@ -1,7 +1,2832 @@
 {
-  "persons": [],
-  "groups": [],
-  "exportDate": "2026-01-14T14:16:48.321Z",
-  "version": "0.4",
-  "note": "Dette er en placeholder. Kjør export via browser console eller opprett en build-step."
+  "persons": [
+    {
+      "id": "p1",
+      "name": "Magnar Møteleder",
+      "email": "magnar.møteleder@lmk.no",
+      "phone": "93203312",
+      "birth_year": 2002,
+      "birth_date": "2002-08-28",
+      "streetAddress": "Storgata 35",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": true,
+      "is_active": true,
+      "core_role": "admin"
+    },
+    {
+      "id": "p2",
+      "name": "Tina Taler",
+      "email": "tina.taler@lmk.no",
+      "phone": "89670788",
+      "birth_year": 1986,
+      "birth_date": "1986-11-23",
+      "streetAddress": "Brentemoen 5",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p3",
+      "name": "Frida Forbønn",
+      "email": "frida.forbønn@lmk.no",
+      "phone": "81609097",
+      "birth_year": 1989,
+      "birth_date": "1989-09-21",
+      "streetAddress": "Indre Årsnes 15",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p4",
+      "name": "Bjarne Barnekirke",
+      "email": "bjarne.barnekirke@lmk.no",
+      "phone": "81567628",
+      "birth_year": 1969,
+      "birth_date": "1969-10-22",
+      "streetAddress": "Strandgata 31",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p5",
+      "name": "Line Lovsang",
+      "email": "line.lovsang@lmk.no",
+      "phone": "42487557",
+      "birth_year": 2007,
+      "birth_date": "2007-04-17",
+      "streetAddress": "Storgata 31",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p6",
+      "name": "Morten Møtevert",
+      "email": "morten.møtevert@lmk.no",
+      "phone": "95474612",
+      "birth_year": 1951,
+      "birth_date": "1951-02-09",
+      "streetAddress": "Strøget 12",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p7",
+      "name": "Randi Rigging",
+      "email": "randi.rigging@lmk.no",
+      "phone": "88510186",
+      "birth_year": 1957,
+      "birth_date": "1957-09-09",
+      "streetAddress": "Skoleveien 1",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p8",
+      "name": "Pia Pynting",
+      "email": "pia.pynting@lmk.no",
+      "phone": "89477238",
+      "birth_year": 1985,
+      "birth_date": "1985-09-25",
+      "streetAddress": "Strandgata 47",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p9",
+      "name": "Lasse Lyd",
+      "email": "lasse.lyd@lmk.no",
+      "phone": "47136757",
+      "birth_year": 1974,
+      "birth_date": "1974-09-07",
+      "streetAddress": "Indre Årsnes 37",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p10",
+      "name": "Bente Bilde",
+      "email": "bente.bilde@lmk.no",
+      "phone": "98624351",
+      "birth_year": 1989,
+      "birth_date": "1989-09-01",
+      "streetAddress": "Høvågveien 37",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p11",
+      "name": "Mette Markedsføring",
+      "email": "mette.markedsføring@lmk.no",
+      "phone": "44317480",
+      "birth_year": 1979,
+      "birth_date": "1979-04-13",
+      "streetAddress": "Storgata 30",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p12",
+      "name": "Stian Eriksen",
+      "email": "stian.eriksen@lmk.no",
+      "phone": "84459152",
+      "birth_year": 1973,
+      "birth_date": "1973-12-01",
+      "streetAddress": "Strandgata 45",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p13",
+      "name": "Vilde Bakke",
+      "email": "vilde.bakke@lmk.no",
+      "phone": "49515050",
+      "birth_year": 1966,
+      "birth_date": "1966-06-26",
+      "streetAddress": "Nordåsveien 29",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p14",
+      "name": "Tone Kristiansen",
+      "email": "tone.kristiansen@lmk.no",
+      "phone": "95086639",
+      "birth_year": 2001,
+      "birth_date": "2001-12-14",
+      "streetAddress": "Skoleveien 2",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p15",
+      "name": "Anders Jensen",
+      "email": "anders.jensen@lmk.no",
+      "phone": "80516485",
+      "birth_year": 1970,
+      "birth_date": "1970-07-17",
+      "streetAddress": "Skoleveien 40",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p16",
+      "name": "Magnus Sandvik",
+      "email": "magnus.sandvik@lmk.no",
+      "phone": "99658670",
+      "birth_year": 1990,
+      "birth_date": "1990-09-21",
+      "streetAddress": "Tveideveien 38",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p17",
+      "name": "Jan Jensen",
+      "email": "jan.jensen@lmk.no",
+      "phone": "80425145",
+      "birth_year": 2005,
+      "birth_date": "2005-11-11",
+      "streetAddress": "Strandgata 50",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p18",
+      "name": "Emma Hansen",
+      "email": "emma.hansen@lmk.no",
+      "phone": "93387471",
+      "birth_year": 2006,
+      "birth_date": "2006-06-06",
+      "streetAddress": "Storgata 21",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p19",
+      "name": "Vilde Karlsen",
+      "email": "vilde.karlsen@lmk.no",
+      "phone": "41807580",
+      "birth_year": 1955,
+      "birth_date": "1955-08-24",
+      "streetAddress": "Strandgata 46",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p20",
+      "name": "Magnus Jensen",
+      "email": "magnus.jensen@lmk.no",
+      "phone": "43597828",
+      "birth_year": 1978,
+      "birth_date": "1978-03-21",
+      "streetAddress": "Brentemoen 45",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p100",
+      "name": "Arne Solberg",
+      "email": "arne.solberg@lmk.no",
+      "phone": "46655852",
+      "birth_date": "1995-01-22",
+      "streetAddress": "Skoleveien 43",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p101",
+      "name": "Martin Solberg",
+      "email": "martin.solberg@lmk.no",
+      "phone": "92342217",
+      "birth_date": "1976-01-12",
+      "streetAddress": "Skoleveien 33",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p102",
+      "name": "Tom Strand",
+      "email": "tom.strand@lmk.no",
+      "phone": "87592735",
+      "birth_date": "1971-10-03",
+      "streetAddress": "Skoleveien 22",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p103",
+      "name": "Heidi Strand",
+      "email": "heidi.strand@lmk.no",
+      "phone": "90424763",
+      "birth_date": "1992-08-21",
+      "streetAddress": "Brentemoen 47",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p104",
+      "name": "Kristin Strand",
+      "birth_date": "2018-09-21",
+      "email": "kristin.strand@lmk.no",
+      "phone": "43230113",
+      "streetAddress": "Indre Årsnes 14",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p105",
+      "name": "Tom Johansen",
+      "email": "tom.johansen@lmk.no",
+      "phone": "41304753",
+      "birth_date": "1992-03-17",
+      "streetAddress": "Skoleveien 32",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p106",
+      "name": "Mari Johansen",
+      "email": "mari.johansen@lmk.no",
+      "phone": "42873165",
+      "birth_date": "1970-03-13",
+      "streetAddress": "Skoleveien 50",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p107",
+      "name": "Thomas Johansen",
+      "birth_date": "2013-05-15",
+      "email": "thomas.johansen@lmk.no",
+      "phone": "41688083",
+      "streetAddress": "Storgata 13",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p108",
+      "name": "Heidi Johansen",
+      "birth_date": "2017-03-15",
+      "email": "heidi.johansen@lmk.no",
+      "phone": "94721230",
+      "streetAddress": "Strandgata 26",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p109",
+      "name": "Espen Johansen",
+      "birth_date": "2023-01-03",
+      "email": "espen.johansen@lmk.no",
+      "phone": "81742906",
+      "streetAddress": "Brentemoen 2",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p110",
+      "name": "Jon Lunde",
+      "email": "jon.lunde@lmk.no",
+      "phone": "94759257",
+      "birth_date": "1978-12-21",
+      "streetAddress": "Skoleveien 29",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p111",
+      "name": "Henrik Lunde",
+      "email": "henrik.lunde@lmk.no",
+      "phone": "87249781",
+      "birth_date": "1990-01-10",
+      "streetAddress": "Strandgata 41",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p112",
+      "name": "Arne Lunde",
+      "birth_date": "2015-05-15",
+      "email": "arne.lunde@lmk.no",
+      "phone": "89792277",
+      "streetAddress": "Vestregate 45",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p113",
+      "name": "Silje Larsen",
+      "email": "silje.larsen@lmk.no",
+      "phone": "82663796",
+      "birth_date": "1988-05-09",
+      "streetAddress": "Grooseveien 21",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p114",
+      "name": "Tone Larsen",
+      "email": "tone.larsen@lmk.no",
+      "phone": "40803439",
+      "birth_date": "1989-08-22",
+      "streetAddress": "Storgata 45",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p115",
+      "name": "Erik Larsen",
+      "birth_date": "2023-07-02",
+      "email": "erik.larsen@lmk.no",
+      "phone": "42091579",
+      "streetAddress": "Storgata 36",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p116",
+      "name": "Jon Larsen",
+      "birth_date": "2014-01-03",
+      "email": "jon.larsen@lmk.no",
+      "phone": "84129159",
+      "streetAddress": "Storgata 25",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p117",
+      "name": "Anne Larsen",
+      "birth_date": "2025-04-09",
+      "email": "anne.larsen@lmk.no",
+      "phone": "84777866",
+      "streetAddress": "Strandgata 15",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p118",
+      "name": "Bjørn Holm",
+      "email": "bjørn.holm@lmk.no",
+      "phone": "47488047",
+      "birth_date": "1979-03-10",
+      "streetAddress": "Høvågveien 23",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p119",
+      "name": "Liv Holm",
+      "email": "liv.holm@lmk.no",
+      "phone": "99361771",
+      "birth_date": "1976-07-13",
+      "streetAddress": "Storgata 33",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p120",
+      "name": "Heidi Holm",
+      "birth_date": "2016-06-28",
+      "email": "heidi.holm@lmk.no",
+      "phone": "46009559",
+      "streetAddress": "Strandgata 5",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p121",
+      "name": "Arne Holm",
+      "birth_date": "2022-12-23",
+      "email": "arne.holm@lmk.no",
+      "phone": "80601058",
+      "streetAddress": "Strandgata 26",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p122",
+      "name": "Geir Holm",
+      "birth_date": "2023-07-22",
+      "email": "geir.holm@lmk.no",
+      "phone": "86428257",
+      "streetAddress": "Storgaten 28",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p123",
+      "name": "Nina Kristiansen",
+      "email": "nina.kristiansen@lmk.no",
+      "phone": "84447195",
+      "birth_date": "1977-04-19",
+      "streetAddress": "Skoleveien 32",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p124",
+      "name": "Mari Kristiansen",
+      "email": "mari.kristiansen@lmk.no",
+      "phone": "82312381",
+      "birth_date": "1973-11-06",
+      "streetAddress": "Skoleveien 42",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p125",
+      "name": "Mari Karlsen",
+      "email": "mari.karlsen@lmk.no",
+      "phone": "82083074",
+      "birth_date": "1984-12-28",
+      "streetAddress": "Vestregate 3",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p126",
+      "name": "Heidi Karlsen",
+      "email": "heidi.karlsen@lmk.no",
+      "phone": "96190149",
+      "birth_date": "1983-05-26",
+      "streetAddress": "Nordåsveien 34",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p127",
+      "name": "Hanne Karlsen",
+      "birth_date": "2025-12-27",
+      "email": "hanne.karlsen@lmk.no",
+      "phone": "89656614",
+      "streetAddress": "Storgata 27",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p128",
+      "name": "Lise Aas",
+      "email": "lise.aas@lmk.no",
+      "phone": "92780741",
+      "birth_date": "1994-04-13",
+      "streetAddress": "Strandgata 45",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p129",
+      "name": "Per Aas",
+      "email": "per.aas@lmk.no",
+      "phone": "48126153",
+      "birth_date": "1987-04-04",
+      "streetAddress": "Vestregate 43",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p130",
+      "name": "Lukas Aas",
+      "birth_date": "2018-07-08",
+      "email": "lukas.aas@lmk.no",
+      "phone": "86385876",
+      "streetAddress": "Strøget 5",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p131",
+      "name": "Siri Aas",
+      "birth_date": "2014-03-18",
+      "email": "siri.aas@lmk.no",
+      "phone": "81433262",
+      "streetAddress": "Brentemoen 40",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p132",
+      "name": "Kristin Hansen",
+      "email": "kristin.hansen@lmk.no",
+      "phone": "47848497",
+      "birth_date": "1970-07-24",
+      "streetAddress": "Storgata 39",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p133",
+      "name": "Jan Hansen",
+      "email": "jan.hansen@lmk.no",
+      "phone": "49063994",
+      "birth_date": "1970-09-13",
+      "streetAddress": "Storgata 48",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p134",
+      "name": "Svein Hansen",
+      "birth_date": "2020-08-13",
+      "email": "svein.hansen@lmk.no",
+      "phone": "80546789",
+      "streetAddress": "Storgata 4",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p135",
+      "name": "Thomas Hansen",
+      "birth_date": "2013-03-27",
+      "email": "thomas.hansen@lmk.no",
+      "phone": "96996387",
+      "streetAddress": "Brentemoen 20",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p136",
+      "name": "Marte Hansen",
+      "birth_date": "2015-11-21",
+      "email": "marte.hansen@lmk.no",
+      "phone": "43911657",
+      "streetAddress": "Skoleveien 2",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p137",
+      "name": "Magnus Hansen",
+      "birth_date": "2024-08-13",
+      "email": "magnus.hansen@lmk.no",
+      "phone": "91558987",
+      "streetAddress": "Storgata 33",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p138",
+      "name": "Per Eriksen",
+      "email": "per.eriksen@lmk.no",
+      "phone": "92388208",
+      "birth_date": "1987-03-25",
+      "streetAddress": "Storgata 15",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p139",
+      "name": "Liv Eriksen",
+      "email": "liv.eriksen@lmk.no",
+      "phone": "90073891",
+      "birth_date": "1987-11-26",
+      "streetAddress": "Brentemoen 14",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p140",
+      "name": "Kari Eriksen",
+      "birth_date": "2017-10-10",
+      "email": "kari.eriksen@lmk.no",
+      "phone": "87569345",
+      "streetAddress": "Storgata 11",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p141",
+      "name": "Bjørn Eriksen",
+      "birth_date": "2022-10-23",
+      "email": "bjørn.eriksen@lmk.no",
+      "phone": "98417801",
+      "streetAddress": "Brentemoen 25",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p142",
+      "name": "Emma Eriksen",
+      "birth_date": "2017-07-19",
+      "email": "emma.eriksen@lmk.no",
+      "phone": "47227742",
+      "streetAddress": "Storgata 15",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p143",
+      "name": "Silje Eriksen",
+      "birth_date": "2013-04-07",
+      "email": "silje.eriksen@lmk.no",
+      "phone": "83853711",
+      "streetAddress": "Storgata 1",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p144",
+      "name": "Martin Dahl",
+      "email": "martin.dahl@lmk.no",
+      "phone": "46294201",
+      "birth_date": "1977-05-03",
+      "streetAddress": "Storgaten 8",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p145",
+      "name": "Anders Dahl",
+      "email": "anders.dahl@lmk.no",
+      "phone": "87910106",
+      "birth_date": "1994-09-25",
+      "streetAddress": "Tveideveien 25",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p146",
+      "name": "Tom Dahl",
+      "birth_date": "2024-03-08",
+      "email": "tom.dahl@lmk.no",
+      "phone": "47902030",
+      "streetAddress": "Brentemoen 9",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p147",
+      "name": "Anne Dahl",
+      "birth_date": "2014-05-11",
+      "email": "anne.dahl@lmk.no",
+      "phone": "88565352",
+      "streetAddress": "Brentemoen 46",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p148",
+      "name": "Thomas Dahl",
+      "birth_date": "2023-02-10",
+      "email": "thomas.dahl@lmk.no",
+      "phone": "44731823",
+      "streetAddress": "Brentemoen 14",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p149",
+      "name": "Geir Lie",
+      "email": "geir.lie@lmk.no",
+      "phone": "95415481",
+      "birth_date": "1985-02-01",
+      "streetAddress": "Høvågveien 37",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p150",
+      "name": "Mari Lie",
+      "email": "mari.lie@lmk.no",
+      "phone": "95746810",
+      "birth_date": "1982-05-22",
+      "streetAddress": "Nordåsveien 4",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p151",
+      "name": "Anne Lie",
+      "birth_date": "2020-11-03",
+      "email": "anne.lie@lmk.no",
+      "phone": "40318925",
+      "streetAddress": "Brentemoen 39",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p152",
+      "name": "Geir Moe",
+      "email": "geir.moe@lmk.no",
+      "phone": "86250968",
+      "birth_date": "1983-01-10",
+      "streetAddress": "Skoleveien 5",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p153",
+      "name": "Andreas Moe",
+      "email": "andreas.moe@lmk.no",
+      "phone": "98792833",
+      "birth_date": "1987-04-09",
+      "streetAddress": "Vestregate 25",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p154",
+      "name": "Arne Moe",
+      "birth_date": "2025-04-02",
+      "email": "arne.moe@lmk.no",
+      "phone": "40963770",
+      "streetAddress": "Strandgata 30",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p155",
+      "name": "Lukas Moe",
+      "birth_date": "2017-08-21",
+      "email": "lukas.moe@lmk.no",
+      "phone": "86307510",
+      "streetAddress": "Skoleveien 6",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p156",
+      "name": "Per Moe",
+      "birth_date": "2016-08-26",
+      "email": "per.moe@lmk.no",
+      "phone": "87595319",
+      "streetAddress": "Indre Årsnes 11",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p157",
+      "name": "Daniel Haugen",
+      "email": "daniel.haugen@lmk.no",
+      "phone": "86847928",
+      "birth_date": "1993-12-25",
+      "streetAddress": "Storgata 43",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p158",
+      "name": "Lukas Haugen",
+      "email": "lukas.haugen@lmk.no",
+      "phone": "82901631",
+      "birth_date": "1981-11-25",
+      "streetAddress": "Skoleveien 34",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p159",
+      "name": "Lars Myklebust",
+      "email": "lars.myklebust@lmk.no",
+      "phone": "42967547",
+      "birth_date": "1978-09-19",
+      "streetAddress": "Brentemoen 3",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p160",
+      "name": "Anne Myklebust",
+      "email": "anne.myklebust@lmk.no",
+      "phone": "42612090",
+      "birth_date": "1983-03-01",
+      "streetAddress": "Vestre Vallesverd 21",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p161",
+      "name": "Per Myklebust",
+      "birth_date": "2015-09-18",
+      "email": "per.myklebust@lmk.no",
+      "phone": "91435458",
+      "streetAddress": "Storgata 21",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p162",
+      "name": "Morten Bakke",
+      "email": "morten.bakke@lmk.no",
+      "phone": "42122306",
+      "birth_date": "1977-05-15",
+      "streetAddress": "Skoleveien 9",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p163",
+      "name": "Anders Bakke",
+      "email": "anders.bakke@lmk.no",
+      "phone": "96906905",
+      "birth_date": "1993-09-02",
+      "streetAddress": "Brentemoen 47",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p164",
+      "name": "Hanne Bakke",
+      "birth_date": "2025-09-16",
+      "email": "hanne.bakke@lmk.no",
+      "phone": "97779335",
+      "streetAddress": "Storgata 38",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p165",
+      "name": "Per Sørensen",
+      "email": "per.sørensen@lmk.no",
+      "phone": "92300844",
+      "birth_date": "1976-12-04",
+      "streetAddress": "Storgata 46",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p166",
+      "name": "Hanne Pedersen",
+      "email": "hanne.pedersen@lmk.no",
+      "phone": "45854747",
+      "birth_date": "1993-12-14",
+      "streetAddress": "Brentemoen 35",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p167",
+      "name": "Kari Pedersen",
+      "email": "kari.pedersen@lmk.no",
+      "phone": "49921626",
+      "birth_date": "1981-09-03",
+      "streetAddress": "Strandgata 20",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p168",
+      "name": "Tone Pedersen",
+      "birth_date": "2022-08-20",
+      "email": "tone.pedersen@lmk.no",
+      "phone": "42757082",
+      "streetAddress": "Indre Årsnes 29",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p169",
+      "name": "Thomas Pedersen",
+      "birth_date": "2025-09-28",
+      "email": "thomas.pedersen@lmk.no",
+      "phone": "81839069",
+      "streetAddress": "Nordåsveien 7",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p170",
+      "name": "Heidi Pedersen",
+      "birth_date": "2021-05-19",
+      "email": "heidi.pedersen@lmk.no",
+      "phone": "94719895",
+      "streetAddress": "Strandgata 23",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p171",
+      "name": "Henrik Pedersen",
+      "birth_date": "2014-05-21",
+      "email": "henrik.pedersen@lmk.no",
+      "phone": "48389371",
+      "streetAddress": "Strøget 4",
+      "postalCode": "4760",
+      "city": "Birkeland",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p172",
+      "name": "Liv Nilsen",
+      "email": "liv.nilsen@lmk.no",
+      "phone": "48305220",
+      "birth_date": "1991-03-21",
+      "streetAddress": "Vestregate 6",
+      "postalCode": "4876",
+      "city": "Grimstad",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p173",
+      "name": "Anders Nilsen",
+      "email": "anders.nilsen@lmk.no",
+      "phone": "47788996",
+      "birth_date": "1976-03-08",
+      "streetAddress": "Indre Årsnes 29",
+      "postalCode": "4770",
+      "city": "Høvåg",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p174",
+      "name": "Hanne Nilsen",
+      "birth_date": "2020-04-24",
+      "email": "hanne.nilsen@lmk.no",
+      "phone": "83232665",
+      "streetAddress": "Storgata 2",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    },
+    {
+      "id": "p175",
+      "name": "Daniel Nilsen",
+      "birth_date": "2022-10-13",
+      "email": "daniel.nilsen@lmk.no",
+      "phone": "99434749",
+      "streetAddress": "Brentemoen 30",
+      "postalCode": "4790",
+      "city": "Lillesand",
+      "is_admin": false,
+      "is_active": true,
+      "core_role": "member"
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "name": "Lovsangsteam",
+      "category": "service",
+      "leaderId": "p5"
+    },
+    {
+      "id": "g2",
+      "name": "Teknikkteam",
+      "category": "service"
+    },
+    {
+      "id": "g3",
+      "name": "Vertskapsteam",
+      "category": "service"
+    },
+    {
+      "id": "g4",
+      "name": "Lederskap",
+      "category": "strategy"
+    },
+    {
+      "id": "g5",
+      "name": "Barnekirketeam",
+      "category": "service"
+    },
+    {
+      "id": "g6",
+      "name": "Markedsføring",
+      "category": "service"
+    }
+  ],
+  "groupMembers": [
+    {
+      "id": "gm1",
+      "group_id": "g4",
+      "person_id": "p1",
+      "role": "leader"
+    },
+    {
+      "id": "gm2",
+      "group_id": "g1",
+      "person_id": "p5",
+      "role": "leader"
+    },
+    {
+      "id": "gm3",
+      "group_id": "g6",
+      "person_id": "p11",
+      "role": "leader"
+    }
+  ],
+  "serviceRoles": [
+    {
+      "id": "sr1",
+      "name": "Møteleder",
+      "default_instructions": [
+        "Snakke med taler om tema",
+        "Lytte til Gud og finne ut hvor du vil med gudstjenesten",
+        "Ha dialog med lovsangsleder om setliste",
+        "Sy sammen gudstjenesten og lage en kjøreplan",
+        "Spørre Lars eller Magnar om en av de kan forrette nattverden og lyse velsignelsen, evt. finne noen andre som kan gjøre det",
+        "Være med på å dele ut nattverden eller finne noen andre til å gjøre det",
+        "Sette deg inn i søndagens info og kollekt (Dette får du tilsendt fredag før gudstjenesten?)",
+        "Eventuelt lage ekstra bønnevandringsposter hvis du vil (Snakk med møtevert)",
+        "Forberede deg åndelig",
+        "Lede bønnemøtet på søndag kl. 10.00 - 10.45. Sett Gud på tronen, vær i bønn og bruk gjerne lovsang (Kl. 10.30 kommer de andre som skal bidra i gudstjenesten for å være med å be)",
+        "Ha en gjennomgang av gudstjenesten med taler, lovsangsleder og teknikere kl. 10.45",
+        "Ha skrevet ut en kjøreplan som deles ut, slik at alle vet hva som skjer når",
+        "Holde styr på tida og si ifra til lovsangsleder at de skal begynne gudstjenesten",
+        "Lede menigheten gjennom gudstjenesten (Bli leda av Gud, observere menigheten. Vær åpen for at kjøreplanen kan endres underveis - i samarbeid med lovsangsleder)",
+        "Legge til rette for å sitte igjen i salen når gudstjenesten er ferdig hvis du ønsker det",
+        "Ansvar for: Velkommen, bønn, søndagens info, informere om nattverd/bønnevandring, kollekt, avslutning/sendelse, kirkekaffe",
+        "Eventuelt ansvar for: Bibellesning, vitnesbyrd, bønn for taleren, stillhet/delestund o.l."
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr2",
+      "name": "Taler",
+      "default_instructions": [
+        "Lage preken og forberede deg åndelig",
+        "Ta kontakt med møteleder og lovsangsleder om tema",
+        "Sende eventuell PowerPoint eller annet som skal opp på skjermen til bildetekniker i god tid",
+        "Møte opp senest kl. 10.00 for å være med på bønnemøtet",
+        "Være med på gjennomgang av gudstjenesten kl. 10.45",
+        "Holde preken"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr3",
+      "name": "Forbønn",
+      "default_instructions": [
+        "Forberede deg åndelig",
+        "Være med og be på bønnemøtet søndag før gudstjenesten kl. 10.00 - 10.45",
+        "Be for dem som ønsker det under gudstjenesten (Etter nattverden)",
+        "Bli igjen i salen litt etter møtet er ferdig for å se om noen vil bli bedt for"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr4",
+      "name": "Barnekirke",
+      "default_instructions": [
+        "Rigge klart det du trenger til opplegget du skal ha",
+        "Finne frem tegnesaker til barna på et av bordene i møtesalen",
+        "Eventuelt samarbeide med møtevert/gudstjenesteleder om bønnestasjon tilpasset barna",
+        "Husk at du må ha hentet alt du trenger før kl. 10.00 (For å ikke forstyrre bønnemøtet)",
+        "Bli med på bønnemøtet kl. 10.30 (Du kan gjerne komme fra kl. 10.00)",
+        "Være med på gjennomgang av gudstjenesten kl. 10.45",
+        "Ha samling/undervisning med barna under talen",
+        "Sørge for at barna er tilbake i møtesalen innen nattverden",
+        "Rigge ned alt du har rigga opp"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr5",
+      "name": "Lovsang",
+      "default_instructions": [
+        "Passe på at du får med deg iPadene hjem fra gudstjenesten",
+        "Ta kontakt med taler og møteleder om tema og visjon for gudstjenesten",
+        "Lage setliste, fikse blekker i riktig toneart og sende til teamet (Senest 5 dager før)",
+        "Organisere øving og oppmøtetidspunkt på søndagen",
+        "Ta kontakt med lydmann om oppmøte (Senest lørdag ettermiddag)",
+        "Sende setliste til bildetekniker i god tid (Si ifra om nye sanger)",
+        "Forberede deg åndelig (Lovsynge, be, lese Bibelen, lytte til Gud)",
+        "Sørge for at iPadene er ladet opp med riktige blekker",
+        "Kunne sangene godt nok til å lede teamet og salen inn i tilbedelse",
+        "Være ferdig med øving senest kl. 10.30 for å delta på bønnemøtet",
+        "Være med på gjennomgang av gudstjenesten kl. 10.45",
+        "Lede menigheten i lovsang (Være åpen for endringer i samarbeid med møteleder)"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr6",
+      "name": "Lyd",
+      "default_instructions": [
+        "Møte opp søndag morgen etter avtale med lovsangsleder",
+        "Ta ansvar for linjesjekk og lydprøve",
+        "Bli med på bønnemøtet kl. 10.30 (Gjerne fra kl. 10.00)",
+        "Være med på gjennomgang av gudstjenesten kl. 10.45",
+        "Styre lyden aktivt (Lytte og følge med på tegn fra teamet)",
+        "Sette på rolig lovsang i det gudstjenesten er ferdig"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr7",
+      "name": "Bilde",
+      "default_instructions": [
+        "Møte opp på søndag senest kl. 10.00",
+        "Gjøre deg kjent med setlista og forberede eventuelle endringer",
+        "Gjøre deg kjent med info, videoer eller PowerPoint som skal vises",
+        "Bli med på bønnemøtet kl. 10.30 (Gjerne fra kl. 10.00)",
+        "Være med på gjennomgang av gudstjenesten kl. 10.45",
+        "Styre tekst og alt visuelt innhold under gudstjenesten"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr8",
+      "name": "Rigging",
+      "default_instructions": [
+        "Rigge opp og ned kirkekaffebordene",
+        "Ta kontakt med lovsangsleder om hvilke instrumenter som skal rigges",
+        "Rigge opp og ned scenen (Detaljer avklares med Lars)"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr9",
+      "name": "Møtevert",
+      "default_instructions": [
+        "Rigge klart nattverdsbordet (Duk, glass, juice, oblater, brett til brukte glass)",
+        "Rigge opp faste bønneposter (Lysgloben, korset med byrdesteiner)",
+        "Eventuelt rigge andre bønneposter etter avtale med møteleder",
+        "Sjekke at det er nok små lys til globen",
+        "Hent alt utstyr før kl. 10.00 (For å ikke forstyrre bønnemøtet)",
+        "Bli med på bønnemøtet kl. 10.30",
+        "Ønske velkommen i døra fra kl. 10.45 til kl. 11.15",
+        "Rydde nattverdsglass ut på kjøkkenet etter nattverden",
+        "Slukke levende lys og rigge ned utstyr etter gudstjenesten"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr10",
+      "name": "Kjøkken",
+      "default_instructions": [
+        "Koke kaffe og tevann ferdig senest kl. 10.45",
+        "Sette frem te, kakao, saft, vann og twist/annet godt",
+        "Sette frem all mat og kaker til kirkekaffen",
+        "Ta ansvar for oppvask etter kirkekaffen",
+        "Se over salen for brukte kopper og nattverdsglass når møtet er ferdig",
+        "Rydde på plass alt utstyr"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr11",
+      "name": "Baking",
+      "default_instructions": [
+        "Bake kake(r) og ta med til gudstjenesten",
+        "Koordiner med kjøkkenansvarlig for den aktuelle søndagen"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr12",
+      "name": "Pynting",
+      "default_instructions": [
+        "Pynte nattverdsbordet (Lys og blomst)",
+        "Pynte bordene i kirkekafferommet og baren ved miksepulten",
+        "Tenne lys (Nattverdsbord, lysglobe, kirkekafferom)",
+        "Slukke levende lys når gudstjenesten er over",
+        "Rigge ned pynt og rydde opp"
+      ],
+      "is_active": true
+    },
+    {
+      "id": "sr13",
+      "name": "Markedsføring",
+      "default_instructions": [
+        "a. Sosiale medier",
+        "• Lage arrangementer på Facebook:",
+        "  – Gudstjenester: så fort som mulig etter forrige gudstjeneste",
+        "  – Andre arrangementer: fjorten dager før",
+        "• Poste på Facebook og Messenger-chat om ting som skjer – senest fredagen når det skjer noe på søndagen (f.eks. bønn og lovsang)",
+        "b. Informasjonsformidling",
+        "• Sende inn info om arrangementer til By og Bygd – senest onsdag før arrangementet"
+      ],
+      "is_active": true
+    }
+  ],
+  "groupServiceRoles": [
+    {
+      "id": "gsr1",
+      "group_id": "g4",
+      "service_role_id": "sr1",
+      "is_active": true
+    },
+    {
+      "id": "gsr2",
+      "group_id": "g4",
+      "service_role_id": "sr2",
+      "is_active": true
+    },
+    {
+      "id": "gsr3",
+      "group_id": "g1",
+      "service_role_id": "sr5",
+      "is_active": true
+    },
+    {
+      "id": "gsr4",
+      "group_id": "g3",
+      "service_role_id": "sr9",
+      "is_active": true
+    },
+    {
+      "id": "gsr5",
+      "group_id": "g2",
+      "service_role_id": "sr6",
+      "is_active": true
+    },
+    {
+      "id": "gsr6",
+      "group_id": "g3",
+      "service_role_id": "sr10",
+      "is_active": true
+    },
+    {
+      "id": "gsr7",
+      "group_id": "g2",
+      "service_role_id": "sr7",
+      "is_active": true
+    },
+    {
+      "id": "gsr8",
+      "group_id": "g5",
+      "service_role_id": "sr4",
+      "is_active": true
+    },
+    {
+      "id": "gsr9",
+      "group_id": "g6",
+      "service_role_id": "sr13",
+      "is_active": true
+    }
+  ],
+  "eventTemplates": [
+    {
+      "id": "t1",
+      "title": "Gudstjeneste Standard",
+      "type": "Gudstjeneste",
+      "recurrence_rule": "Hver søndag kl. 11:00",
+      "color": "#2563eb"
+    },
+    {
+      "id": "t2",
+      "title": "Utegudstjeneste",
+      "type": "Gudstjeneste",
+      "recurrence_rule": "Ved behov",
+      "color": "#10b981"
+    },
+    {
+      "id": "t3",
+      "title": "Konfirmasjon",
+      "type": "Konfirmasjon",
+      "recurrence_rule": "Årlig (mai)",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "t4",
+      "title": "Kulturnatta",
+      "type": "Kultur",
+      "recurrence_rule": "Årlig (september)",
+      "color": "#8b5cf6"
+    }
+  ],
+  "eventOccurrences": [],
+  "assignments": [
+    {
+      "id": "a1",
+      "template_id": "t1",
+      "service_role_id": "sr1",
+      "person_id": "p1"
+    },
+    {
+      "id": "a2",
+      "template_id": "t1",
+      "service_role_id": "sr2",
+      "person_id": "p2"
+    },
+    {
+      "id": "a3",
+      "template_id": "t1",
+      "service_role_id": "sr3",
+      "person_id": "p3"
+    },
+    {
+      "id": "a4",
+      "template_id": "t1",
+      "service_role_id": "sr4",
+      "person_id": "p4"
+    },
+    {
+      "id": "a5",
+      "template_id": "t1",
+      "service_role_id": "sr5",
+      "person_id": "p5"
+    },
+    {
+      "id": "a6",
+      "template_id": "t1",
+      "service_role_id": "sr9",
+      "person_id": "p6"
+    },
+    {
+      "id": "a7",
+      "template_id": "t1",
+      "service_role_id": "sr8",
+      "person_id": "p7"
+    },
+    {
+      "id": "a8",
+      "template_id": "t1",
+      "service_role_id": "sr12",
+      "person_id": "p8"
+    },
+    {
+      "id": "a9",
+      "template_id": "t1",
+      "service_role_id": "sr6",
+      "person_id": "p9"
+    },
+    {
+      "id": "a10",
+      "template_id": "t1",
+      "service_role_id": "sr7",
+      "person_id": "p10"
+    },
+    {
+      "id": "a11",
+      "template_id": "t1",
+      "service_role_id": "sr10",
+      "person_id": null
+    },
+    {
+      "id": "a12",
+      "template_id": "t1",
+      "service_role_id": "sr13",
+      "person_id": "p11"
+    }
+  ],
+  "programItems": [
+    {
+      "id": "pi0",
+      "template_id": "t1",
+      "title": "Velkommen ved inngang",
+      "duration_minutes": 15,
+      "service_role_id": "sr9",
+      "person_id": "p6",
+      "order": 0
+    },
+    {
+      "id": "pi1",
+      "template_id": "t1",
+      "title": "Lovsang x2",
+      "duration_minutes": 7,
+      "service_role_id": "sr5",
+      "group_id": "g1",
+      "person_id": "p5",
+      "order": 1
+    },
+    {
+      "id": "pi2",
+      "template_id": "t1",
+      "title": "Velkommen. Åpningsord",
+      "duration_minutes": 3,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 2,
+      "description": "Dagens tema"
+    },
+    {
+      "id": "pi3",
+      "template_id": "t1",
+      "title": "Bønn",
+      "duration_minutes": 2,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 3
+    },
+    {
+      "id": "pi4",
+      "template_id": "t1",
+      "title": "Kunngjøringer",
+      "duration_minutes": 3,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 4
+    },
+    {
+      "id": "pi5",
+      "template_id": "t1",
+      "title": "Lovsang x3",
+      "duration_minutes": 10,
+      "service_role_id": "sr5",
+      "group_id": "g1",
+      "person_id": "p5",
+      "order": 5
+    },
+    {
+      "id": "pi6",
+      "template_id": "t1",
+      "title": "Barnekirke",
+      "duration_minutes": 2,
+      "service_role_id": "sr4",
+      "person_id": "p4",
+      "order": 6,
+      "description": "Barna går til sin samling"
+    },
+    {
+      "id": "pi7",
+      "template_id": "t1",
+      "title": "Kaffe / te-påfyll",
+      "duration_minutes": 8,
+      "service_role_id": "sr9",
+      "person_id": "p6",
+      "order": 7
+    },
+    {
+      "id": "pi8",
+      "template_id": "t1",
+      "title": "Bønn før tale",
+      "duration_minutes": 2,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 8,
+      "description": "Forbønn for taler"
+    },
+    {
+      "id": "pi9",
+      "template_id": "t1",
+      "title": "Tale / undervisning",
+      "duration_minutes": 20,
+      "service_role_id": "sr2",
+      "person_id": "p2",
+      "order": 9
+    },
+    {
+      "id": "pi10",
+      "template_id": "t1",
+      "title": "Lovsang",
+      "duration_minutes": 5,
+      "service_role_id": "sr5",
+      "group_id": "g1",
+      "person_id": "p5",
+      "order": 10
+    },
+    {
+      "id": "pi11",
+      "template_id": "t1",
+      "title": "Nattverd og presentasjon av bønnestasjoner (3 stk)",
+      "duration_minutes": 8,
+      "order": 11
+    },
+    {
+      "id": "pi12",
+      "template_id": "t1",
+      "title": "Forbønn",
+      "duration_minutes": 7,
+      "service_role_id": "sr3",
+      "person_id": "p3",
+      "order": 12
+    },
+    {
+      "id": "pi13",
+      "template_id": "t1",
+      "title": "Kollekt",
+      "duration_minutes": 2,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 13,
+      "description": "Vipps-skjerm under lovsang"
+    },
+    {
+      "id": "pi14",
+      "template_id": "t1",
+      "title": "Lovsang x2",
+      "duration_minutes": 7,
+      "service_role_id": "sr5",
+      "group_id": "g1",
+      "person_id": "p5",
+      "order": 14
+    },
+    {
+      "id": "pi15",
+      "template_id": "t1",
+      "title": "Velsignelsen",
+      "duration_minutes": 1,
+      "service_role_id": "sr1",
+      "person_id": "p1",
+      "order": 15
+    },
+    {
+      "id": "pi16",
+      "template_id": "t1",
+      "title": "Lovsang (avslutningssang)",
+      "duration_minutes": 2,
+      "service_role_id": "sr5",
+      "group_id": "g1",
+      "person_id": "p5",
+      "order": 16
+    },
+    {
+      "id": "pi17",
+      "template_id": "t1",
+      "title": "Kirkekaffe",
+      "duration_minutes": 0,
+      "service_role_id": "sr9",
+      "person_id": "p6",
+      "order": 17
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-169d1e32-20260115",
+      "title": "Rapportere trossamfunnsstatistikk",
+      "deadline": "2026-01-15",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-206cd3a6-20260131",
+      "title": "Rapportere skattemelding, AGA og skatt",
+      "deadline": "2026-01-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-60dfb22b-20260131",
+      "title": "Regnskap og planlegging av årsbudsjett",
+      "deadline": "2026-01-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-18d064fe-20260215",
+      "title": "Sende ut innkallelse til årsmøte",
+      "deadline": "2026-02-15",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-79fa56e4-20260228",
+      "title": "Nominasjon av kandidater til valg",
+      "deadline": "2026-02-28",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-7e2336f7-20260228",
+      "title": "Regnskapsrapportering til lederskapet",
+      "deadline": "2026-02-28",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-61963818-20260331",
+      "title": "ÅRSMØTE",
+      "deadline": "2026-03-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-7a868edd-20260320",
+      "title": "PMF (uke 11)",
+      "deadline": "2026-03-20",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-302bab14-20260301",
+      "title": "Rapportere menighetsstatistikk",
+      "deadline": "2026-03-01",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6a073235-20260331",
+      "title": "Månedsregnskap",
+      "deadline": "2026-03-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-41401d0f-20260430",
+      "title": "Menighetsweekend",
+      "deadline": "2026-04-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6c675bcb-20260430",
+      "title": "Ferdigstille kalender for høsthalvåret (Gudstjenester/medlemsmøter)",
+      "deadline": "2026-04-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-594bacd9-20260430",
+      "title": "Melde arrangementer til utleier",
+      "deadline": "2026-04-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-3879d314-20260430",
+      "title": "Rapportering av årsregnskap til MKNU (Altinn)",
+      "deadline": "2026-04-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-25e3226f-20260531",
+      "title": "Månedsregnskap og vanlig drift",
+      "deadline": "2026-05-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-41024fbf-20260615",
+      "title": "Utegudstjeneste (Søknadsfrist 15. mai for Bananparken eller andre steder)",
+      "deadline": "2026-06-15",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-2fed1e7e-20260630",
+      "title": "Gudstjenesteliste for høsthalvåret (skal være klar før siste gudstjeneste i juni)",
+      "deadline": "2026-06-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6a05d519-20260630",
+      "title": "Månedsregnskap",
+      "deadline": "2026-06-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6519c949-20260731",
+      "title": "MVA-rapportering til Misjonskirken Norge",
+      "deadline": "2026-07-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-1dac7eac-20260815",
+      "title": "Nedsette komité for menighetsweekend",
+      "deadline": "2026-08-15",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-4eb7dd40-20260831",
+      "title": "Fastsette datoer for lederskapet",
+      "deadline": "2026-08-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-3fa09754-20260831",
+      "title": "Gudstjenesteledermøte",
+      "deadline": "2026-08-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-0d5aaada-20260831",
+      "title": "Kartlegging av frivillige til oppgaver og gudstjenester",
+      "deadline": "2026-08-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-5bd51379-20260831",
+      "title": "Sjekke politiattester",
+      "deadline": "2026-08-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-0fe0de56-20260930",
+      "title": "Ferdigstille kalender for vårhalvåret (Gudstjenester/medlemsmøter)",
+      "deadline": "2026-09-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-594966fe-20260930",
+      "title": "Melde arrangementer til utleier",
+      "deadline": "2026-09-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6a0477fc-20260930",
+      "title": "Månedsregnskap",
+      "deadline": "2026-09-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-2825d0be-20261031",
+      "title": "Menighetsmøte",
+      "deadline": "2026-10-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6feadd1d-20261031",
+      "title": "Kampanje for faste givere",
+      "deadline": "2026-10-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-14f25a79-20261031",
+      "title": "Planleggingsstart for adventsamling",
+      "deadline": "2026-10-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-0d3f0b98-20261130",
+      "title": "Budsjettarbeid for kommende år",
+      "deadline": "2026-11-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-28c87596-20261130",
+      "title": "Planlegging av menighetsweekend",
+      "deadline": "2026-11-30",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-1528620d-20261220",
+      "title": "Gudstjenesteliste for vårhalvåret (skal være klar før siste gudstjeneste i desember)",
+      "deadline": "2026-12-20",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-265006d3-20261224",
+      "title": "Adventsamling",
+      "deadline": "2026-12-24",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-3669c27e-20261231",
+      "title": "Planlegging av neste års årsmøte",
+      "deadline": "2026-12-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    },
+    {
+      "id": "task-6148f052-20261231",
+      "title": "Rapportering til Misjonskirken Norge",
+      "deadline": "2026-12-31",
+      "responsible_id": "p1",
+      "is_global": true,
+      "occurrence_id": null,
+      "template_id": null
+    }
+  ],
+  "noticeMessages": [
+    {
+      "id": "m1",
+      "sender_id": "p5",
+      "recipient_role": "team_leader",
+      "title": "Husk lederforum mandag!",
+      "content": "Vi gleder oss til å se alle gruppeledere til en samling på mandag kl 19:00. Vi skal snakke om visjonen for høsten.",
+      "created_at": "2026-01-25T22:29:20.145Z",
+      "isRead": false
+    }
+  ],
+  "changeLogs": [],
+  "families": [
+    {
+      "id": "f1",
+      "name": "Familien Solberg",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f2",
+      "name": "Familien Strand",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f3",
+      "name": "Familien Johansen",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f4",
+      "name": "Familien Lunde",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f5",
+      "name": "Familien Larsen",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f6",
+      "name": "Familien Holm",
+      "created_at": "2026-01-26T22:29:20.146Z"
+    },
+    {
+      "id": "f7",
+      "name": "Familien Kristiansen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f8",
+      "name": "Familien Karlsen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f9",
+      "name": "Familien Aas",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f10",
+      "name": "Familien Hansen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f11",
+      "name": "Familien Eriksen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f12",
+      "name": "Familien Dahl",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f13",
+      "name": "Familien Lie",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f14",
+      "name": "Familien Moe",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f15",
+      "name": "Familien Haugen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f16",
+      "name": "Familien Myklebust",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f17",
+      "name": "Familien Bakke",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f18",
+      "name": "Familien Sørensen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f19",
+      "name": "Familien Pedersen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    },
+    {
+      "id": "f20",
+      "name": "Familien Nilsen",
+      "created_at": "2026-01-26T22:29:20.147Z"
+    }
+  ],
+  "familyMembers": [
+    {
+      "id": "fm1",
+      "family_id": "f1",
+      "person_id": "p100",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm2",
+      "family_id": "f1",
+      "person_id": "p101",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm3",
+      "family_id": "f2",
+      "person_id": "p102",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm4",
+      "family_id": "f2",
+      "person_id": "p103",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm5",
+      "family_id": "f2",
+      "person_id": "p104",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm6",
+      "family_id": "f3",
+      "person_id": "p105",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm7",
+      "family_id": "f3",
+      "person_id": "p106",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm8",
+      "family_id": "f3",
+      "person_id": "p107",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm9",
+      "family_id": "f3",
+      "person_id": "p108",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm10",
+      "family_id": "f3",
+      "person_id": "p109",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm11",
+      "family_id": "f4",
+      "person_id": "p110",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm12",
+      "family_id": "f4",
+      "person_id": "p111",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm13",
+      "family_id": "f4",
+      "person_id": "p112",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm14",
+      "family_id": "f5",
+      "person_id": "p113",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm15",
+      "family_id": "f5",
+      "person_id": "p114",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm16",
+      "family_id": "f5",
+      "person_id": "p115",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm17",
+      "family_id": "f5",
+      "person_id": "p116",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm18",
+      "family_id": "f5",
+      "person_id": "p117",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm19",
+      "family_id": "f6",
+      "person_id": "p118",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm20",
+      "family_id": "f6",
+      "person_id": "p119",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm21",
+      "family_id": "f6",
+      "person_id": "p120",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm22",
+      "family_id": "f6",
+      "person_id": "p121",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm23",
+      "family_id": "f6",
+      "person_id": "p122",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm24",
+      "family_id": "f7",
+      "person_id": "p123",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm25",
+      "family_id": "f7",
+      "person_id": "p124",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm26",
+      "family_id": "f8",
+      "person_id": "p125",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm27",
+      "family_id": "f8",
+      "person_id": "p126",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm28",
+      "family_id": "f8",
+      "person_id": "p127",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm29",
+      "family_id": "f9",
+      "person_id": "p128",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm30",
+      "family_id": "f9",
+      "person_id": "p129",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm31",
+      "family_id": "f9",
+      "person_id": "p130",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm32",
+      "family_id": "f9",
+      "person_id": "p131",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm33",
+      "family_id": "f10",
+      "person_id": "p132",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm34",
+      "family_id": "f10",
+      "person_id": "p133",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm35",
+      "family_id": "f10",
+      "person_id": "p134",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm36",
+      "family_id": "f10",
+      "person_id": "p135",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm37",
+      "family_id": "f10",
+      "person_id": "p136",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm38",
+      "family_id": "f10",
+      "person_id": "p137",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm39",
+      "family_id": "f11",
+      "person_id": "p138",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm40",
+      "family_id": "f11",
+      "person_id": "p139",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm41",
+      "family_id": "f11",
+      "person_id": "p140",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm42",
+      "family_id": "f11",
+      "person_id": "p141",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm43",
+      "family_id": "f11",
+      "person_id": "p142",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm44",
+      "family_id": "f11",
+      "person_id": "p143",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm45",
+      "family_id": "f12",
+      "person_id": "p144",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm46",
+      "family_id": "f12",
+      "person_id": "p145",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm47",
+      "family_id": "f12",
+      "person_id": "p146",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm48",
+      "family_id": "f12",
+      "person_id": "p147",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm49",
+      "family_id": "f12",
+      "person_id": "p148",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm50",
+      "family_id": "f13",
+      "person_id": "p149",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm51",
+      "family_id": "f13",
+      "person_id": "p150",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm52",
+      "family_id": "f13",
+      "person_id": "p151",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm53",
+      "family_id": "f14",
+      "person_id": "p152",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm54",
+      "family_id": "f14",
+      "person_id": "p153",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm55",
+      "family_id": "f14",
+      "person_id": "p154",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm56",
+      "family_id": "f14",
+      "person_id": "p155",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm57",
+      "family_id": "f14",
+      "person_id": "p156",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm58",
+      "family_id": "f15",
+      "person_id": "p157",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm59",
+      "family_id": "f15",
+      "person_id": "p158",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm60",
+      "family_id": "f16",
+      "person_id": "p159",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm61",
+      "family_id": "f16",
+      "person_id": "p160",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm62",
+      "family_id": "f16",
+      "person_id": "p161",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm63",
+      "family_id": "f17",
+      "person_id": "p162",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm64",
+      "family_id": "f17",
+      "person_id": "p163",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm65",
+      "family_id": "f17",
+      "person_id": "p164",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm66",
+      "family_id": "f17",
+      "person_id": "p13",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm67",
+      "family_id": "f18",
+      "person_id": "p165",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm68",
+      "family_id": "f18",
+      "person_id": "p165",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm69",
+      "family_id": "f19",
+      "person_id": "p166",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm70",
+      "family_id": "f19",
+      "person_id": "p167",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm71",
+      "family_id": "f19",
+      "person_id": "p168",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm72",
+      "family_id": "f19",
+      "person_id": "p169",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm73",
+      "family_id": "f19",
+      "person_id": "p170",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm74",
+      "family_id": "f19",
+      "person_id": "p171",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm75",
+      "family_id": "f20",
+      "person_id": "p172",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm76",
+      "family_id": "f20",
+      "person_id": "p173",
+      "role": "partner",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm77",
+      "family_id": "f20",
+      "person_id": "p174",
+      "role": "child",
+      "isPrimaryResidence": true
+    },
+    {
+      "id": "fm78",
+      "family_id": "f20",
+      "person_id": "p175",
+      "role": "child",
+      "isPrimaryResidence": true
+    }
+  ],
+  "exportDate": "2026-01-26T22:29:20.148Z",
+  "version": "0.4"
 }

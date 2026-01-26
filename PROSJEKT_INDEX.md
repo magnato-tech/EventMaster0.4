@@ -6,8 +6,8 @@ EventMaster LMK er en React-basert webapplikasjon for administrasjon av gudstjen
 ## 🏗️ Prosjektstruktur
 
 ```
-EventMaster0.4/
-├── App.tsx                    # Hovedkomponent med routing og state management
+EventMaster0.6/
+├── App.tsx                    # Hovedkomponent med routing, state management og sync-valg
 ├── index.tsx                  # React entry point
 ├── types.ts                   # TypeScript type definitions
 ├── db.ts                      # Database/logic layer (localStorage med backup-støtte)
@@ -21,6 +21,10 @@ EventMaster0.4/
 │   ├── seed.ts                # Supabase seed
 │   ├── seedData.ts            # Testdata for seed
 │   └── seedLocal.ts           # Skriver seed til master_data_backup.json
+├── lib/
+│   ├── supabase.ts            # Supabase konfigurasjon
+│   ├── supabaseClient.ts      # Supabase klient instans
+│   └── supabaseSync.ts        # Logikk for synkronisering til Supabase
 └── components/
     ├── Dashboard.tsx          # Brukerens vaktliste og oversikt
     ├── DashboardView.tsx      # Statistikk-dashboard med grafer
@@ -32,7 +36,8 @@ EventMaster0.4/
     ├── IdentityPicker.tsx     # Brukervelger ved oppstart
     ├── Navigation.tsx         # Navigasjonskomponent (desktop/mobile)
     ├── PersonAvatar.tsx       # Avatar-komponent
-    └── SettingsView.tsx       # Innstillinger
+    ├── SettingsTab.tsx        # Innstillinger (nytt i 0.6)
+    └── SettingsView.tsx       # Innstillinger (deprecated/erstattet av SettingsTab)
 ```
 
 ## 🛠️ Teknologier
@@ -44,8 +49,9 @@ EventMaster0.4/
 - **Tailwind CSS** (via CDN) - Styling
 - **Lucide React** - Ikonbibliotek
 
-### Lagring
+### Lagring & Sync
 - **localStorage** - Hovedlagring i nettleser (`eventmaster_lmk_db`)
+- **Supabase** - Valgfri sky-synkronisering (nytt i 0.6)
 - **JSON Backup** - Støtte for eksport/import via `master_data_backup.json`
 
 ## 📦 Hovedkomponenter
