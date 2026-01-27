@@ -743,7 +743,7 @@ const DashboardView: React.FC<Props> = ({ db }) => {
           const prevIndex = () => setCarouselIndex((prev) => (prev - 1 + categories.length) % categories.length);
 
           return (
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm max-h-[350px] flex flex-col">
+            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm max-h-[440px] flex flex-col overflow-hidden">
               <h3 className="text-sm font-bold text-slate-900 mb-3">Smågrupper</h3>
               
               {/* Karusell-container */}
@@ -1384,7 +1384,7 @@ const CategoryPieChart: React.FC<{
   });
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="flex flex-col space-y-3">
       {/* Kakediagram */}
       <div className="flex justify-center">
         <div className="relative">
@@ -1456,20 +1456,20 @@ const CategoryPieChart: React.FC<{
 
       {/* Totalt antall */}
       <div className="text-center">
-        <div className="text-sm font-semibold text-gray-700">
+        <div className="text-xs font-semibold text-gray-700">
           Totalt: {totalMembers} personer
         </div>
       </div>
 
       {/* Forklaring (Legend) - viser farger og grupper */}
-      <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+      <div className="space-y-1 max-h-[140px] overflow-y-auto pr-2">
         {segments.map((segment) => {
           const percentage = Math.round(segment.percentage * 100);
           const isHovered = hoveredIndex === segment.index;
           return (
             <div
               key={segment.index}
-              className="flex items-center gap-2.5 p-1.5 rounded-md transition-all text-xs"
+              className="flex items-center gap-2 p-1 rounded-md transition-all text-[11px]"
               style={{ 
                 backgroundColor: isHovered ? `${segment.color}15` : 'transparent'
               }}

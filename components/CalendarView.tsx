@@ -102,6 +102,7 @@ const CalendarView: React.FC<Props> = ({
   const [editOccurrenceTime, setEditOccurrenceTime] = useState<string>('');
   const [editOccurrenceTheme, setEditOccurrenceTheme] = useState<string>('');
   const [editOccurrenceBibleVerse, setEditOccurrenceBibleVerse] = useState<string>('');
+  const [isEditingOwner, setIsEditingOwner] = useState(false);
   
   // Drag and Drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -185,6 +186,10 @@ const CalendarView: React.FC<Props> = ({
       setEditOccurrenceTime(formatTimeForInput(selectedOcc.time));
       setEditOccurrenceTheme(selectedOcc.theme || '');
     }
+  }, [selectedOccId]);
+
+  useEffect(() => {
+    setIsEditingOwner(false);
   }, [selectedOccId]);
 
   const calendarDays = useMemo(() => {
@@ -934,13 +939,39 @@ const CalendarView: React.FC<Props> = ({
                 )}
               </div>
               <h3 className="text-xl font-bold text-slate-900">{selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id)}</h3>
-              {selectedOcc.owner_id && (
-                <div className="mt-2">
-                  <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-theme bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-                    Eventleder: {db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ukjent'}
-                  </span>
-                </div>
-              )}
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <span className="font-semibold text-slate-600">Eventleder:</span>
+                {isEditingOwner && currentUser.is_admin ? (
+                  <select
+                    value={selectedOcc.owner_id || ''}
+                    onChange={(e) => {
+                      const nextOwner = e.target.value || undefined;
+                      onUpdateOccurrence(selectedOcc.id, { owner_id: nextOwner });
+                      setIsEditingOwner(false);
+                    }}
+                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-xs"
+                  >
+                    <option value="">Ikke satt</option>
+                    {db.persons
+                      .filter(p => p.is_active)
+                      .map(person => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                  </select>
+                ) : (
+                  <span>{db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ikke satt'}</span>
+                )}
+                {currentUser.is_admin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingOwner(prev => !prev)}
+                    className="p-1 text-slate-400 hover:text-primary transition-colors"
+                    title="Rediger eventleder"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                )}
+              </div>
               {/* Tema-felt (synlig og redigerbart for admin) */}
               {isAdmin ? (
                 <div className="mt-2">
@@ -959,32 +990,6 @@ const CalendarView: React.FC<Props> = ({
                 <p className="text-sm text-slate-600 italic mt-2">{selectedOcc.theme}</p>
               ) : null}
 
-              {currentUser.is_admin && (
-                <div className="mt-3 max-w-xs">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Eventleder</label>
-                  <select
-                    value={selectedOcc.owner_id || ''}
-                    onChange={(e) => {
-                      const nextOwner = e.target.value || undefined;
-                      onUpdateOccurrence(selectedOcc.id, { owner_id: nextOwner });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-sm"
-                  >
-                    <option value="">Ikke satt</option>
-                    {db.persons
-                      .filter(p => p.is_active)
-                      .map(person => (
-                        <option key={person.id} value={person.id}>{person.name}</option>
-                      ))}
-                  </select>
-                </div>
-              )}
-
-              {!currentUser.is_admin && selectedOcc.owner_id && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Eventleder: {db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ukjent'}
-                </p>
-              )}
             </div>
             <div className="flex items-center gap-2">
               <button

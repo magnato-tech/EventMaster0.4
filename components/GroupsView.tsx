@@ -92,8 +92,17 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [selectedBirthYears, setSelectedBirthYears] = useState<Set<number>>(new Set());
   const [isAccessLevelDropdownOpen, setIsAccessLevelDropdownOpen] = useState(false);
   const [isBirthYearDropdownOpen, setIsBirthYearDropdownOpen] = useState(false);
-  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'birthDate' | 'address' | null>(null);
+  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'birthDate' | 'groups' | 'address' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState({
+    birthDate: true,
+    role: true,
+    groups: true,
+    email: true,
+    phone: true,
+    address: false
+  });
 
   const filteredGroups = useMemo(() => {
     let groups = db.groups;
@@ -1355,6 +1364,19 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
             const bDate = b.birth_date ? new Date(b.birth_date).getTime() : 0;
             comparison = aDate - bDate;
             break;
+          case 'groups':
+            const aGroupNames = db.groupMembers
+              .filter(gm => gm.person_id === a.id)
+              .map(gm => db.groups.find(g => g.id === gm.group_id)?.name)
+              .filter(Boolean)
+              .join(', ');
+            const bGroupNames = db.groupMembers
+              .filter(gm => gm.person_id === b.id)
+              .map(gm => db.groups.find(g => g.id === gm.group_id)?.name)
+              .filter(Boolean)
+              .join(', ');
+            comparison = aGroupNames.localeCompare(bGroupNames);
+            break;
           case 'address':
             const aAddr = `${a.streetAddress || ''} ${a.postalCode || ''} ${a.city || ''}`.trim();
             const bAddr = `${b.streetAddress || ''} ${b.postalCode || ''} ${b.city || ''}`.trim();
@@ -1848,7 +1870,47 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
               </div>
               
               {/* Opprett gruppe fra utvalg-knapp */}
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsColumnPickerOpen(prev => !prev)}
+                    className="px-4 py-1.5 border border-slate-200 bg-white rounded-theme text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Vis/skjul kolonner
+                  </button>
+                  {isColumnPickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setIsColumnPickerOpen(false)} />
+                      <div className="absolute right-0 z-20 mt-2 w-56 rounded-theme border border-slate-200 bg-white shadow-lg p-3 space-y-2">
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.birthDate} onChange={() => setVisibleColumns(prev => ({ ...prev, birthDate: !prev.birthDate }))} />
+                          Fødselsdato
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.role} onChange={() => setVisibleColumns(prev => ({ ...prev, role: !prev.role }))} />
+                          Rolle
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.groups} onChange={() => setVisibleColumns(prev => ({ ...prev, groups: !prev.groups }))} />
+                          Grupper
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.email} onChange={() => setVisibleColumns(prev => ({ ...prev, email: !prev.email }))} />
+                          E-post
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.phone} onChange={() => setVisibleColumns(prev => ({ ...prev, phone: !prev.phone }))} />
+                          Telefon
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" checked={visibleColumns.address} onChange={() => setVisibleColumns(prev => ({ ...prev, address: !prev.address }))} />
+                          Adresse
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -1889,62 +1951,88 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    onClick={() => {
-                      if (sortColumn === 'birthDate') {
-                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortColumn('birthDate');
-                        setSortDirection('asc');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      Født
-                      {sortColumn === 'birthDate' && (
-                        <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    onClick={() => {
-                      if (sortColumn === 'role') {
-                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortColumn('role');
-                        setSortDirection('asc');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      Rolle
-                      {sortColumn === 'role' && (
-                        <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
-                  </th>
-                  <th className="py-3 px-4">E-post</th>
-                  <th className="py-3 px-4">Telefon</th>
-                  <th 
-                    className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                    onClick={() => {
-                      if (sortColumn === 'address') {
-                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortColumn('address');
-                        setSortDirection('asc');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      Adresse
-                      {sortColumn === 'address' && (
-                        <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
-                  </th>
+                  {visibleColumns.birthDate && (
+                    <th 
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => {
+                        if (sortColumn === 'birthDate') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortColumn('birthDate');
+                          setSortDirection('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        Født
+                        {sortColumn === 'birthDate' && (
+                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.role && (
+                    <th 
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => {
+                        if (sortColumn === 'role') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortColumn('role');
+                          setSortDirection('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        Rolle
+                        {sortColumn === 'role' && (
+                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.groups && (
+                    <th
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => {
+                        if (sortColumn === 'groups') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortColumn('groups');
+                          setSortDirection('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        Grupper
+                        {sortColumn === 'groups' && (
+                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.email && <th className="py-3 px-4">E-post</th>}
+                  {visibleColumns.phone && <th className="py-3 px-4">Telefon</th>}
+                  {visibleColumns.address && (
+                    <th 
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => {
+                        if (sortColumn === 'address') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortColumn('address');
+                          setSortDirection('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        Adresse
+                        {sortColumn === 'address' && (
+                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                  )}
                   <th className="py-3 px-4 text-right">Handling</th>
                 </tr>
               </thead>
@@ -1958,6 +2046,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                   const groupMemberships = db.groupMembers.filter(gm => gm.person_id === person.id);
                   const isGroupLeader = groupMemberships.some(gm => gm.role === GroupRole.LEADER);
                   const isDeputyLeader = groupMemberships.some(gm => gm.role === GroupRole.DEPUTY_LEADER);
+                  const groupNames = Array.from(new Set(groupMemberships
+                    .map(gm => db.groups.find(g => g.id === gm.group_id)?.name)
+                    .filter(Boolean))) as string[];
+                  const groupsLabel = groupNames.length > 0 ? groupNames.join(', ') : '–';
                   
                   let roleLabel = 'Medlem';
                   let roleColorClass = 'bg-slate-100 text-slate-600 border-slate-200';
@@ -1991,17 +2083,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                           {person.name}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-xs text-slate-500">{formattedBirthDate || '–'}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${roleColorClass}`}>
-                          {roleLabel}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-slate-500">{person.email || '–'}</td>
-                      <td className="py-3 px-4 text-xs text-slate-500">{person.phone || '–'}</td>
-                      <td className="py-3 px-4 text-xs text-slate-500 max-w-[200px] truncate" title={address || undefined}>
-                        {address || '–'}
-                      </td>
+                      {visibleColumns.birthDate && (
+                        <td className="py-3 px-4 text-xs text-slate-500">{formattedBirthDate || '–'}</td>
+                      )}
+                      {visibleColumns.role && (
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${roleColorClass}`}>
+                            {roleLabel}
+                          </span>
+                        </td>
+                      )}
+                      {visibleColumns.groups && (
+                        <td className="py-3 px-4 text-xs text-slate-500 max-w-[220px] truncate" title={groupsLabel}>
+                          {groupsLabel}
+                        </td>
+                      )}
+                      {visibleColumns.email && (
+                        <td className="py-3 px-4 text-xs text-slate-500">{person.email || '–'}</td>
+                      )}
+                      {visibleColumns.phone && (
+                        <td className="py-3 px-4 text-xs text-slate-500">{person.phone || '–'}</td>
+                      )}
+                      {visibleColumns.address && (
+                        <td className="py-3 px-4 text-xs text-slate-500 max-w-[200px] truncate" title={address || undefined}>
+                          {address || '–'}
+                        </td>
+                      )}
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         {isAdmin && (
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
