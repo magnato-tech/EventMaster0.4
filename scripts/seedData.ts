@@ -1,4 +1,4 @@
-import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task, EventOccurrence, OccurrenceStatus, Assignment } from '../types';
+import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task, EventOccurrence, OccurrenceStatus, Assignment, ProgramItem } from '../types';
 import { DEFAULT_EVENT_TEMPLATES } from './seedEventTemplates';
 
 // Hjelpefunksjon for å generere tilfeldig fødselsdato i et gitt år
@@ -72,18 +72,79 @@ const generateSundayOccurrences = (templateId: string, monthsAhead = 2): EventOc
   return occurrences;
 };
 
-const generatePastorAssignments = (
-  occurrences: EventOccurrence[],
-  baseAssignments: Assignment[],
-  personId: string
-): Assignment[] => {
-  let nextAssignmentId = getNextNumericId('a', baseAssignments.map(a => a.id));
-  return occurrences.map(occ => ({
-    id: `a${nextAssignmentId++}`,
-    occurrence_id: occ.id,
-    service_role_id: 'sr2',
-    person_id: personId
-  }));
+const buildOccurrenceCopies = (
+  state: AppState,
+  occurrences: EventOccurrence[]
+): { programItems: ProgramItem[]; assignments: Assignment[] } => {
+  const programItems: ProgramItem[] = [];
+  const assignments: Assignment[] = [];
+
+  occurrences.forEach(occ => {
+    const templateProgramItems = state.programItems.filter(p => p.template_id === occ.template_id);
+    if (templateProgramItems.length === 0) return;
+
+    const programRoleIds = new Set(
+      templateProgramItems.filter(p => p.service_role_id).map(p => p.service_role_id)
+    );
+    const templateManualAssignments = state.assignments.filter(a =>
+      a.template_id === occ.template_id && !programRoleIds.has(a.service_role_id)
+    );
+
+    templateProgramItems.forEach(tp => {
+      programItems.push({
+        id: crypto.randomUUID(),
+        occurrence_id: occ.id,
+        template_id: null,
+        title: tp.title,
+        duration_minutes: tp.duration_minutes,
+        service_role_id: tp.service_role_id,
+        group_id: tp.group_id,
+        person_id: tp.person_id,
+        participant_ids: tp.participant_ids,
+        order: tp.order,
+        description: tp.description
+      });
+    });
+
+    const rolePersonMap = new Map<string, string[]>();
+    templateProgramItems.forEach(item => {
+      if (!item.service_role_id) return;
+      if (!rolePersonMap.has(item.service_role_id)) {
+        rolePersonMap.set(item.service_role_id, []);
+      }
+      const assigned = rolePersonMap.get(item.service_role_id)!;
+      if (item.person_id && !assigned.includes(item.person_id)) {
+        assigned.push(item.person_id);
+      }
+      (item.participant_ids || []).forEach(pid => {
+        if (!assigned.includes(pid)) assigned.push(pid);
+      });
+    });
+
+    rolePersonMap.forEach((personIds, roleId) => {
+      personIds.forEach((personId, index) => {
+        assignments.push({
+          id: crypto.randomUUID(),
+          occurrence_id: occ.id,
+          service_role_id: roleId,
+          person_id: personId,
+          display_order: index + 1
+        });
+      });
+    });
+
+    templateManualAssignments.forEach(ta => {
+      assignments.push({
+        id: crypto.randomUUID(),
+        occurrence_id: occ.id,
+        service_role_id: ta.service_role_id,
+        person_id: ta.person_id,
+        display_order: 0
+      });
+    });
+  });
+
+  return { programItems, assignments };
 };
 
 // Geografisk fordeling basert på Lillesand Misjonskirke
@@ -820,6 +881,13 @@ const addDemoGroups = (baseData: AppState): AppState => {
     return person;
   };
 
+  const createAdultMember = (): Person => {
+    const firstName = MALE_NAMES[nextPersonId % MALE_NAMES.length];
+    const lastName = LAST_NAMES[nextPersonId % LAST_NAMES.length];
+    const age = 30 + (nextPersonId % 30);
+    return createPerson(`${firstName} ${lastName}`, age);
+  };
+
   // Barnekirke: gruppe "Gul" med alle barn 0-5 år
   const barneGroupId = `g${nextGroupId++}`;
   groups.push({ id: barneGroupId, name: 'Barnekirke Gul', category: GroupCategory.BARNKIRKE });
@@ -867,6 +935,135 @@ const addDemoGroups = (baseData: AppState): AppState => {
   createHusgruppe('Husgruppe Menn 2', MALE_NAMES, 6);
   createHusgruppe('Husgruppe Kvinner 1', FEMALE_NAMES, 0);
   createHusgruppe('Husgruppe Kvinner 2', FEMALE_NAMES, 6);
+
+  const ensureGroupLeaderAndDeputy = (group: Group) => {
+    const members = groupMembers.filter(gm => gm.group_id === group.id);
+    const memberIds = new Set(members.map(m => m.person_id));
+
+    const ensureMember = (personId?: string | null) => {
+      if (personId && memberIds.has(personId)) return personId;
+      if (personId && !memberIds.has(personId)) {
+        groupMembers.push({
+          id: `gm${nextGroupMemberId++}`,
+          group_id: group.id,
+          person_id: personId,
+          role: GroupRole.MEMBER
+        });
+        memberIds.add(personId);
+        return personId;
+      }
+      const created = createAdultMember();
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: group.id,
+        person_id: created.id,
+        role: GroupRole.MEMBER
+      });
+      memberIds.add(created.id);
+      return created.id;
+    };
+
+    if (memberIds.size < 2) {
+      while (memberIds.size < 2) {
+        ensureMember(null);
+      }
+    }
+
+    const memberList = groupMembers.filter(gm => gm.group_id === group.id);
+    const fallbackLeader = memberList[0]?.person_id ?? ensureMember(null);
+    const fallbackDeputy = memberList.find(m => m.person_id !== fallbackLeader)?.person_id ?? ensureMember(null);
+
+    group.leaderId = group.leaderId || fallbackLeader;
+    group.deputyId = group.deputyId || (group.leaderId === fallbackLeader ? fallbackDeputy : fallbackLeader);
+
+    memberList.forEach(member => {
+      if (member.person_id === group.leaderId) {
+        member.role = GroupRole.LEADER;
+      } else if (member.person_id === group.deputyId) {
+        member.role = GroupRole.DEPUTY_LEADER;
+      } else {
+        member.role = GroupRole.MEMBER;
+      }
+    });
+
+    if (!memberList.some(m => m.person_id === group.leaderId && m.role === GroupRole.LEADER)) {
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: group.id,
+        person_id: group.leaderId!,
+        role: GroupRole.LEADER
+      });
+    }
+
+    if (!memberList.some(m => m.person_id === group.deputyId && m.role === GroupRole.DEPUTY_LEADER)) {
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: group.id,
+        person_id: group.deputyId!,
+        role: GroupRole.DEPUTY_LEADER
+      });
+    }
+  };
+
+  groups.forEach(group => ensureGroupLeaderAndDeputy(group));
+
+  const leaderTeam = groups.find(g => g.id === 'g4' || g.name.toLowerCase().includes('lederskap'));
+  if (leaderTeam) {
+    const members = groupMembers.filter(gm => gm.group_id === leaderTeam.id);
+    const memberIds = new Set(members.map(m => m.person_id));
+    while (memberIds.size < 10) {
+      const person = createAdultMember();
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: leaderTeam.id,
+        person_id: person.id,
+        role: GroupRole.MEMBER
+      });
+      memberIds.add(person.id);
+    }
+    const finalIds = Array.from(memberIds).slice(0, 10);
+    const pruned = groupMembers.filter(gm => gm.group_id !== leaderTeam.id);
+    finalIds.forEach((personId, index) => {
+      const role = index === 0 ? GroupRole.LEADER : index === 1 ? GroupRole.DEPUTY_LEADER : GroupRole.MEMBER;
+      pruned.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: leaderTeam.id,
+        person_id: personId,
+        role
+      });
+    });
+    groupMembers.length = 0;
+    groupMembers.push(...pruned);
+    leaderTeam.leaderId = finalIds[0];
+    leaderTeam.deputyId = finalIds[1];
+  }
+
+  const leaderIds = new Set<string>();
+  groups.forEach(group => {
+    if (group.leaderId) leaderIds.add(group.leaderId);
+    if (group.deputyId) leaderIds.add(group.deputyId);
+  });
+
+  const allLeaderIds = Array.from(leaderIds);
+  if (allLeaderIds.length > 0) {
+    const groupLeaderTeamId = `g${nextGroupId++}`;
+    groups.push({
+      id: groupLeaderTeamId,
+      name: 'Gruppelederteam',
+      category: GroupCategory.STRATEGY,
+      leaderId: allLeaderIds[0],
+      deputyId: allLeaderIds[1] || allLeaderIds[0]
+    });
+    allLeaderIds.forEach((personId, index) => {
+      const role = index === 0 ? GroupRole.LEADER : index === 1 ? GroupRole.DEPUTY_LEADER : GroupRole.MEMBER;
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: groupLeaderTeamId,
+        person_id: personId,
+        role
+      });
+    });
+  }
 
   return {
     ...baseData,
@@ -994,11 +1191,7 @@ const generateYearlyWheelTasks = (year: number): Task[] => {
 const populatedWithFamilies = populateFamilyData(INITIAL_DATA);
 const populatedWithDemoGroups = addDemoGroups(populatedWithFamilies);
 const defaultSundayOccurrences = generateSundayOccurrences('t1', 2);
-const pastorAssignments = generatePastorAssignments(
-  defaultSundayOccurrences,
-  populatedWithDemoGroups.assignments,
-  perPastor.id
-);
+const occurrenceCopies = buildOccurrenceCopies(populatedWithDemoGroups, defaultSundayOccurrences);
 
 // Legg til årshjul-tasks for inneværende år
 const currentYear = new Date().getFullYear();
@@ -1010,7 +1203,11 @@ export const POPULATED_DATA: AppState = {
   ],
   assignments: [
     ...populatedWithDemoGroups.assignments,
-    ...pastorAssignments
+    ...occurrenceCopies.assignments
+  ],
+  programItems: [
+    ...populatedWithDemoGroups.programItems,
+    ...occurrenceCopies.programItems
   ],
   attendanceResponses: [],
   tasks: [...populatedWithDemoGroups.tasks, ...generateYearlyWheelTasks(currentYear)]
