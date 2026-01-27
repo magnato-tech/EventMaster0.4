@@ -112,35 +112,22 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
     setMessage('');
 
     try {
-      const response = await fetch('/master_data_backup.json', { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error('Fant ikke master_data_backup.json');
-      }
-      const payload = await response.json();
-      const nextState = normalizeBackup(payload);
-      const sanitizedState: AppState = {
-        ...nextState,
-        eventOccurrences: [],
-        changeLogs: [],
-        assignments: nextState.assignments.filter(a => !a.occurrence_id),
-        programItems: nextState.programItems.filter(p => !p.occurrence_id)
-      };
-      const withTemplates: AppState = {
-        ...sanitizedState,
+      const nextState: AppState = {
+        ...POPULATED_DATA,
         eventTemplates: [...POPULATED_DATA.eventTemplates]
       };
 
-      if (withTemplates.persons.length === 0 && withTemplates.groups.length === 0) {
-        throw new Error('Backup ser tom ut. Kjør "npm run seed:local" først.');
+      if (nextState.persons.length === 0 && nextState.groups.length === 0) {
+        throw new Error('Demo-data er tom.');
       }
 
-      onLoadBackup(withTemplates);
+      onLoadBackup(nextState);
       setStatus('success');
-      setMessage(`Lastet demo-data: ${withTemplates.persons.length} personer, ${withTemplates.groups.length} grupper.`);
+      setMessage(`Lastet demo-data: ${nextState.persons.length} personer, ${nextState.groups.length} grupper.`);
     } catch (error) {
       console.error(error);
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Kunne ikke laste backup.');
+      setMessage(error instanceof Error ? error.message : 'Kunne ikke laste demo-data.');
     }
   };
 

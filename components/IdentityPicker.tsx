@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Person, CoreRole } from '../types';
+import { POPULATED_DATA } from '../scripts/seedData';
 import { Search } from 'lucide-react';
 import PersonAvatar from './PersonAvatar';
 
@@ -30,18 +31,11 @@ const IdentityPicker: React.FC<Props> = ({ persons, onSelect }) => {
   const loadSeedData = async () => {
     const dbKey = 'eventmaster_lmk_db';
     try {
-      const response = await fetch('/master_data_backup.json', { cache: 'no-store' });
-      if (!response.ok) {
-        alert('Fant ingen demo-data. Kjør "npm run seed:local" først.');
+      if (POPULATED_DATA.persons.length === 0) {
+        alert('Demo-data er tom.');
         return;
       }
-      const payload = await response.json();
-      const hasSeedData = Array.isArray(payload?.persons) && payload.persons.length > 0;
-      if (!hasSeedData) {
-        alert('Demo-data er tom. Kjør "npm run seed:local" først.');
-        return;
-      }
-      localStorage.setItem(dbKey, JSON.stringify(payload));
+      localStorage.setItem(dbKey, JSON.stringify(POPULATED_DATA));
       window.location.reload();
     } catch (error) {
       console.error(error);

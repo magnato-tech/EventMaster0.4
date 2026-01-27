@@ -148,7 +148,11 @@ export const getDB = (): AppState => {
     // Ignorer feil og bruk data som normalt
   }
   
-  return ensureEventTemplates(ensureAdmin(parsedData));
+  const withDefaults = ensureEventTemplates(ensureAdmin(parsedData));
+  if (shouldLoadDemoByDefault() && withDefaults.persons.length === 0 && withDefaults.groups.length === 0) {
+    return ensureEventTemplates(ensureAdmin(POPULATED_DATA));
+  }
+  return withDefaults;
 };
 
 export const saveDB = (state: AppState) => {
