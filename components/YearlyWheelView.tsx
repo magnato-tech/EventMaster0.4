@@ -85,7 +85,7 @@ const YearlyWheelView: React.FC<Props> = ({ db, isAdmin, onAddTask, onUpdateTask
         {isAdmin && (
           <button 
             onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-bold text-xs shadow-sm hover:bg-indigo-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-theme font-bold text-xs shadow-sm hover:bg-primary-hover transition-all"
           >
             <Plus size={16} /> Ny frist
           </button>
@@ -94,10 +94,10 @@ const YearlyWheelView: React.FC<Props> = ({ db, isAdmin, onAddTask, onUpdateTask
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {monthNames.map((name, index) => (
-          <div key={index} className={`bg-white rounded-lg border shadow-sm flex flex-col transition-all ${index === currentMonth ? 'border-indigo-500 ring-1 ring-indigo-500/10' : 'border-slate-200'}`}>
-            <div className={`px-4 py-2 border-b flex justify-between items-center ${index === currentMonth ? 'bg-indigo-50/50' : 'bg-slate-50'}`}>
-              <h3 className={`font-bold text-xs uppercase tracking-wider ${index === currentMonth ? 'text-indigo-700' : 'text-slate-600'}`}>{name}</h3>
-              {index === currentMonth && <span className="bg-indigo-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">NÅ</span>}
+          <div key={index} className={`bg-white rounded-theme border shadow-sm flex flex-col transition-all ${index === currentMonth ? 'border-primary ring-1 ring-primary/10' : 'border-slate-200'}`}>
+            <div className={`px-4 py-2 border-b flex justify-between items-center ${index === currentMonth ? 'bg-primary-light/50' : 'bg-slate-50'}`}>
+              <h3 className={`font-bold text-xs uppercase tracking-wider ${index === currentMonth ? 'text-primary' : 'text-slate-600'}`}>{name}</h3>
+              {index === currentMonth && <span className="bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-theme">NÅ</span>}
             </div>
 
             <div className="p-2 space-y-1 flex-1 min-h-[120px]">
@@ -127,7 +127,7 @@ const YearlyWheelView: React.FC<Props> = ({ db, isAdmin, onAddTask, onUpdateTask
                       </div>
                       {isAdmin && (
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditingTask(task); setIsModalOpen(true); }} className="text-slate-400 hover:text-indigo-600"><Edit2 size={12} /></button>
+                          <button onClick={() => { setEditingTask(task); setIsModalOpen(true); }} className="text-slate-400 hover:text-primary"><Edit2 size={12} /></button>
                           <button onClick={() => onDeleteTask(task.id)} className="text-slate-400 hover:text-rose-600"><Trash2 size={12} /></button>
                         </div>
                       )}
@@ -147,30 +147,30 @@ const YearlyWheelView: React.FC<Props> = ({ db, isAdmin, onAddTask, onUpdateTask
       {isModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]">
           <div className="absolute inset-0" onClick={() => { setIsModalOpen(false); setEditingTask(null); }}></div>
-          <div className="relative bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 text-left">
-            <div className="px-5 py-4 bg-indigo-700 text-white flex justify-between items-center">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden animate-in zoom-in-95 text-left">
+            <div className="px-5 py-4 bg-primary text-white flex justify-between items-center">
               <h3 className="font-bold">{editingTask ? 'Rediger frist' : 'Ny frist i årshjul'}</h3>
               <button onClick={() => { setIsModalOpen(false); setEditingTask(null); }}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Tittel</label>
-                <input required name="title" type="text" defaultValue={editingTask?.title || ''} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm font-semibold outline-none" placeholder="f.eks. Årsmelding" />
+                <input required name="title" type="text" defaultValue={editingTask?.title || ''} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-theme text-sm font-semibold outline-none focus:ring-1 focus:ring-primary" placeholder="f.eks. Årsmelding" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Fristdato</label>
-                <input required name="deadline" type="date" defaultValue={editingTask?.deadline || new Date().toISOString().split('T')[0]} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm outline-none" />
+                <input required name="deadline" type="date" defaultValue={editingTask?.deadline || new Date().toISOString().split('T')[0]} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-theme text-sm outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Ansvarlig</label>
-                <select name="responsible_id" defaultValue={editingTask?.responsible_id || ''} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm font-medium outline-none">
+                <select name="responsible_id" defaultValue={editingTask?.responsible_id || ''} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-theme text-sm font-medium outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Velg ansvarlig...</option>
                   {db.persons.filter(p => p.is_active).map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>
-              <button type="submit" className="w-full py-2.5 bg-indigo-600 text-white rounded-md font-bold text-sm shadow-sm hover:bg-indigo-700 transition-all mt-2">
+              <button type="submit" className="w-full py-2.5 bg-primary text-white rounded-theme font-bold text-sm shadow-sm hover:bg-primary-hover transition-all mt-2">
                 {editingTask ? 'Oppdater frist' : 'Legg til i årshjul'}
               </button>
             </form>

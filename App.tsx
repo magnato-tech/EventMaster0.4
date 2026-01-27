@@ -41,6 +41,23 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Last inn og aktiver tema-innstillinger globalt
+    const primary = localStorage.getItem('theme_--color-primary');
+    const radius = localStorage.getItem('theme_--radius-md');
+    const sidebar = localStorage.getItem('theme_sidebar_mode');
+    const dark = localStorage.getItem('theme_dark_mode') === 'true';
+
+    if (primary) {
+      document.documentElement.style.setProperty('--color-primary', primary);
+      document.documentElement.style.setProperty('--color-primary-hover', primary);
+      document.documentElement.style.setProperty('--color-primary-light', `${primary}20`);
+    }
+    if (radius) document.documentElement.style.setProperty('--radius-md', radius);
+    if (sidebar === 'dark') document.documentElement.classList.add('sidebar-dark');
+    if (dark) document.documentElement.classList.add('dark-mode');
+  }, []);
+
+  useEffect(() => {
     saveDB(db);
     // Gjør eksport-funksjoner tilgjengelige globalt for debugging
     if (typeof window !== 'undefined') {
@@ -607,7 +624,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-left">
       <nav className="hidden md:flex flex-col w-64 bg-white border-r h-screen sticky top-0">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-indigo-700 leading-tight uppercase tracking-tighter">EventMaster<br/><span className="text-indigo-400">LMK</span></h1>
+          <h1 className="text-xl font-bold theme-primary leading-tight uppercase tracking-tighter">EventMaster<br/><span className="opacity-60">LMK</span></h1>
         </div>
         
         <div className="flex-1 px-4 space-y-1 py-2">
@@ -641,7 +658,7 @@ const App: React.FC = () => {
 
         <div className="p-4 border-t bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+            <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-primary font-bold text-xs">
               {currentUser.name.charAt(0)}
             </div>
             <div className="flex-1 overflow-hidden">
@@ -795,7 +812,7 @@ const App: React.FC = () => {
 const NavItem: React.FC<{active: boolean, onClick: () => void, icon: React.ReactNode, label: string}> = ({ active, onClick, icon, label }) => (
   <button 
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold text-sm shadow-sm' : 'text-slate-600 hover:bg-slate-100 text-sm font-medium'}`}
+    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-theme transition-all ${active ? 'bg-primary-light text-primary font-bold text-sm shadow-sm' : 'text-slate-600 hover:bg-slate-100 text-sm font-medium'}`}
   >
     <span className="[&>svg]:shrink-0">{icon}</span>
     <span>{label}</span>
@@ -805,7 +822,7 @@ const NavItem: React.FC<{active: boolean, onClick: () => void, icon: React.React
 const MobileNavItem: React.FC<{active: boolean, onClick: () => void, icon: React.ReactNode, label: string}> = ({ active, onClick, icon, label }) => (
   <button 
     onClick={onClick}
-    className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all ${active ? 'text-indigo-700' : 'text-slate-400'}`}
+    className={`flex flex-col items-center gap-1 px-3 py-1 rounded-theme transition-all ${active ? 'text-primary' : 'text-slate-400'}`}
   >
     <span className="[&>svg]:shrink-0">{icon}</span>
     <span className="text-[10px] font-bold">{label}</span>

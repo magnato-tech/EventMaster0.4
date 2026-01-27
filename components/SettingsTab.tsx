@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { AppState, Family, FamilyMember, FamilyRole, Group, GroupCategory, GroupMember, GroupRole, GroupServiceRole, Person, ServiceRole } from '../types';
-import { CloudDownload, Database, Download, FileDown, DownloadCloud, RotateCcw } from 'lucide-react';
+import { CloudDownload, Database, Download, FileDown, DownloadCloud, RotateCcw, Palette, Sliders, Check } from 'lucide-react';
 import { EMPTY_DATA } from '../constants';
 import { DEMO_MAX_PEOPLE, generatePersons, POPULATED_DATA } from '../scripts/seedData';
 import { supabase, supabaseTables } from '../lib/supabaseClient';
@@ -36,6 +36,7 @@ const normalizeBackup = (payload: Partial<AppState>): AppState => ({
 });
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyncModeChange }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'data' | 'appearance'>('data');
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState<string>('');
   const [report, setReport] = useState<string>('');
@@ -46,6 +47,63 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
   const [customFamilyCount, setCustomFamilyCount] = useState<number>(Math.min(POPULATED_DATA.families.length || 12, 12));
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [isGroupsModalOpen, setIsGroupsModalOpen] = useState<boolean>(false);
+
+  // Tema-styring
+  const [theme, setTheme] = useState({
+    primary: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#6366f1',
+    radius: getComputedStyle(document.documentElement).getPropertyValue('--radius-md').trim() || '8px',
+    sidebarMode: localStorage.getItem('theme_sidebar_mode') || 'light',
+    darkMode: localStorage.getItem('theme_dark_mode') === 'true',
+  });
+
+  const updateThemeVariable = (name: string, value: string) => {
+    document.documentElement.style.setProperty(name, value);
+    if (name === '--color-primary') {
+      document.documentElement.style.setProperty('--color-primary-hover', value);
+      document.documentElement.style.setProperty('--color-primary-light', `${value}20`);
+    }
+    const key = name.startsWith('--radius') ? 'radius' : (name.startsWith('--color-primary') ? 'primary' : name);
+    setTheme(prev => ({ ...prev, [key]: value }));
+    localStorage.setItem(`theme_${name}`, value);
+  };
+
+  const setSidebarMode = (mode: string) => {
+    setTheme(prev => ({ ...prev, sidebarMode: mode }));
+    localStorage.setItem('theme_sidebar_mode', mode);
+    if (mode === 'dark') {
+      document.documentElement.classList.add('sidebar-dark');
+    } else {
+      document.documentElement.classList.remove('sidebar-dark');
+    }
+  };
+
+  const setDarkMode = (enabled: boolean) => {
+    setTheme(prev => ({ ...prev, darkMode: enabled }));
+    localStorage.setItem('theme_dark_mode', String(enabled));
+    if (enabled) {
+      document.documentElement.classList.add('dark-mode');
+    } else {
+      document.documentElement.classList.remove('dark-mode');
+    }
+  };
+
+  const applyPreset = (preset: { primary: string, radius: string, sidebar: string, darkMode?: boolean }) => {
+    updateThemeVariable('--color-primary', preset.primary);
+    updateThemeVariable('--radius-md', preset.radius);
+    setSidebarMode(preset.sidebar);
+    if (preset.darkMode !== undefined) setDarkMode(preset.darkMode);
+  };
+
+  useEffect(() => {
+    const primary = localStorage.getItem('theme_--color-primary');
+    const radius = localStorage.getItem('theme_--radius-md');
+    const sidebar = localStorage.getItem('theme_sidebar_mode');
+    const dark = localStorage.getItem('theme_dark_mode') === 'true';
+    if (primary) updateThemeVariable('--color-primary', primary);
+    if (radius) updateThemeVariable('--radius-md', radius);
+    if (sidebar) setSidebarMode(sidebar);
+    if (dark) setDarkMode(true);
+  }, []);
 
   const handleLoadBackup = async () => {
     if (!confirm('Dette vil overskrive lokal data. Fortsette?')) return;
@@ -642,22 +700,22 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
     <div className="space-y-6 max-w-[900px] mx-auto pb-20 md:pb-8 animate-in fade-in duration-300 text-left">
       <header className="border-b border-slate-200 pb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Database size={20} className="text-indigo-600" />
+          <Database size={20} className="text-primary" />
           <div>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">Innstillinger</h2>
-            <p className="text-xs text-slate-500 font-medium">Lokal backup og utviklingsverktøy.</p>
+            <p className="text-xs text-slate-500 font-medium">Tilpass løsningen og administrer data.</p>
           </div>
         </div>
 
         {status !== 'idle' && (
-          <div className={`px-4 py-2 rounded-lg text-xs font-semibold animate-in slide-in-from-top-2 duration-300 ${
+          <div className={`px-4 py-2 rounded-theme text-xs font-semibold animate-in slide-in-from-top-2 duration-300 ${
             status === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
             status === 'error' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-            'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            'bg-primary-light text-primary border border-primary-light'
           }`}>
             {status === 'loading' ? (
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 <span>Jobber...</span>
               </div>
             ) : (
@@ -670,186 +728,330 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
         )}
       </header>
 
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Synkronisering</h3>
-          <p className="text-xs text-slate-500">
-            Velg om nye endringer skal sendes til Supabase eller holdes lokalt i nettleseren.
-          </p>
-          <p className="text-[11px] text-slate-400 mt-2">
-            NB: Denne bryteren henter ikke data fra Supabase. Bruk “Hent fra Supabase” for å importere data.
-          </p>
-        </div>
-
-        <label className="inline-flex items-center gap-3 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={syncMode === 'supabase'}
-            onChange={(e) => handleSyncModeChange(e.target.checked ? 'supabase' : 'local')}
-            className="sr-only"
-          />
-          <div className={`w-12 h-6 rounded-full transition-colors relative ${syncMode === 'supabase' ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-            <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${syncMode === 'supabase' ? 'translate-x-6' : 'translate-x-1'}`} />
-          </div>
-          <div className="text-xs font-semibold text-slate-700">
-            {syncMode === 'supabase' ? 'Synk til Supabase' : 'Lokal sandkasse'}
-          </div>
-        </label>
-        <p className="text-[11px] text-slate-500">
-          Bytt modus ved å skru bryteren på/av.
-        </p>
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Eksport</h3>
-          <p className="text-xs text-slate-500">
-            Last ned data fra nettleseren (localStorage).
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleDownloadBackup}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <Download size={16} />
-            Full eksport
-          </button>
-          <button
-            onClick={handleDownloadPersonsGroups}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <Download size={16} />
-            Kun personer/grupper
-          </button>
-        </div>
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Importer data</h3>
-          <p className="text-xs text-slate-500">
-            Hent inn data og overskriv lokal lagring.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleFetchFromSupabase}
-            disabled={status === 'loading'}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60"
-          >
-            <CloudDownload size={16} />
-            Hent fra Supabase
-          </button>
-          <button
-            onClick={handleLoadBackup}
-            disabled={status === 'loading'}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60"
-          >
-            <DownloadCloud size={16} />
-            Last inn demo-data
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <FileDown size={16} />
-            Importer fra fil
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)}
-            className="hidden"
-          />
-        </div>
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Generer data</h3>
-          <p className="text-xs text-slate-500">
-            Opprett demo-personer eller demo-grupper.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setIsCustomModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
-          >
-            Legg inn personer
-          </button>
-          <button
-            onClick={() => setIsGroupsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
-          >
-            Opprett demo-grupper
-          </button>
-        </div>
-
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Slett og rydd</h3>
-          <p className="text-xs text-slate-500">
-            Fjern data eller tøm cache.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleClearPeople}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700 transition-colors"
-          >
-            Slett personer
-          </button>
-          <button
-            onClick={handleClearGroups}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700 transition-colors"
-          >
-            Slett grupper
-          </button>
-          <button
-            onClick={handleClearImageCache}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700 transition-colors"
-          >
-            Tøm bilde-cache
-          </button>
-          <button
-            onClick={handleResetData}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700 transition-colors"
-          >
-            Nullstill datasett
-          </button>
-        </div>
-      </section>
-
-      <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Datasjekk</h3>
-          <p className="text-xs text-slate-500">
-            Sjekker konsistens i lokale data og viser en kort rapport.
-          </p>
-        </div>
-
+      {/* Under-faner */}
+      <div className="flex border-b border-slate-200">
         <button
-          onClick={handleRunDataCheck}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors"
+          onClick={() => setActiveSubTab('data')}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeSubTab === 'data'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
         >
-          Kjør datasjekk
+          Data & Synk
         </button>
+        <button
+          onClick={() => setActiveSubTab('appearance')}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeSubTab === 'appearance'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Design & Utseende
+        </button>
+      </div>
 
-        {report && (
-          <pre className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-md p-3 whitespace-pre-wrap">
-            {report}
-          </pre>
-        )}
-      </section>
+      {activeSubTab === 'data' ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <RotateCcw size={16} className="text-primary" />
+                Synkronisering
+              </h3>
+              <p className="text-xs text-slate-500">
+                Velg om nye endringer skal sendes til Supabase eller holdes lokalt i nettleseren.
+              </p>
+            </div>
+
+            <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={syncMode === 'supabase'}
+                onChange={(e) => handleSyncModeChange(e.target.checked ? 'supabase' : 'local')}
+                className="sr-only"
+              />
+              <div className={`w-12 h-6 rounded-full transition-colors relative ${syncMode === 'supabase' ? 'bg-primary' : 'bg-slate-300'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${syncMode === 'supabase' ? 'translate-x-6' : 'translate-x-1'}`} />
+              </div>
+              <div className="text-xs font-semibold text-slate-700">
+                {syncMode === 'supabase' ? 'Synk til Supabase' : 'Lokal sandkasse'}
+              </div>
+            </label>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Download size={16} className="text-primary" />
+                Eksport
+              </h3>
+              <p className="text-xs text-slate-500">
+                Last ned data fra nettleseren (localStorage).
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleDownloadBackup}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors"
+              >
+                <Download size={16} />
+                Full eksport
+              </button>
+              <button
+                onClick={handleDownloadPersonsGroups}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors"
+              >
+                <Download size={16} />
+                Kun personer/grupper
+              </button>
+            </div>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FileDown size={16} className="text-primary" />
+                Importer data
+              </h3>
+              <p className="text-xs text-slate-500">
+                Hent inn data og overskriv lokal lagring.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleFetchFromSupabase}
+                disabled={status === 'loading'}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+              >
+                <CloudDownload size={16} />
+                Hent fra Supabase
+              </button>
+              <button
+                onClick={handleLoadBackup}
+                disabled={status === 'loading'}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors disabled:opacity-60"
+              >
+                <DownloadCloud size={16} />
+                Last inn demo-data
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors"
+              >
+                <FileDown size={16} />
+                Importer fra fil
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+            </div>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <RotateCcw size={16} className="text-primary" />
+                Slett og rydd
+              </h3>
+              <p className="text-xs text-slate-500">
+                Fjern data eller tøm cache.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleClearPeople}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-theme font-medium hover:bg-rose-700 transition-colors"
+              >
+                Slett personer
+              </button>
+              <button
+                onClick={handleClearGroups}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-theme font-medium hover:bg-rose-700 transition-colors"
+              >
+                Slett grupper
+              </button>
+              <button
+                onClick={handleClearImageCache}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-theme font-medium hover:bg-rose-700 transition-colors"
+              >
+                Tøm bilde-cache
+              </button>
+              <button
+                onClick={handleResetData}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-600 text-white rounded-theme font-medium hover:bg-rose-700 transition-colors"
+              >
+                Nullstill datasett
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <Palette size={20} className="text-primary" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Tema-pakker</h3>
+                <p className="text-xs text-slate-500">
+                  Velg et ferdig oppsett for din menighet.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { name: 'Standard', primary: '#6366f1', radius: '8px', sidebar: 'light', darkMode: false, color: 'bg-indigo-500' },
+                { name: 'Moderne Mørk', primary: '#2563eb', radius: '12px', sidebar: 'dark', darkMode: true, color: 'bg-blue-600' },
+                { name: 'Skog & Natur', primary: '#059669', radius: '4px', sidebar: 'light', darkMode: false, color: 'bg-emerald-600' },
+                { name: 'Høstvarme', primary: '#d97706', radius: '8px', sidebar: 'dark', darkMode: false, color: 'bg-amber-600' },
+              ].map(preset => (
+                <button
+                  key={preset.name}
+                  onClick={() => applyPreset(preset)}
+                  className="flex flex-col items-center gap-2 p-3 rounded-theme border border-slate-200 hover:border-primary-light hover:bg-slate-50 transition-all group"
+                >
+                  <div className={`w-12 h-12 rounded-full ${preset.color} shadow-inner flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
+                    {theme.primary === preset.primary && <Check size={20} />}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{preset.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <Palette size={20} className="text-primary" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Egendefinert Design</h3>
+                <p className="text-xs text-slate-500">
+                  Finjuster farger og visuelle detaljer.
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">Primærfarge</span>
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="color" 
+                      value={theme.primary}
+                      onChange={(e) => updateThemeVariable('--color-primary', e.target.value)}
+                      className="w-12 h-12 rounded-theme cursor-pointer border border-slate-200 p-1 bg-white"
+                    />
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={theme.primary}
+                        onChange={(e) => updateThemeVariable('--color-primary', e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-theme font-mono"
+                      />
+                    </div>
+                  </div>
+                </label>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Side-meny (Sidebar)</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSidebarMode('light')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-theme border transition-all ${theme.sidebarMode === 'light' ? 'bg-primary-light border-primary-light text-primary shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    >
+                      Lys
+                    </button>
+                    <button
+                      onClick={() => setSidebarMode('dark')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-theme border transition-all ${theme.sidebarMode === 'dark' ? 'bg-slate-800 border-slate-700 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    >
+                      Mørk
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Mørkt Modus (Beta)</span>
+                  <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={theme.darkMode}
+                      onChange={(e) => setDarkMode(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-12 h-6 rounded-full transition-colors relative ${theme.darkMode ? 'bg-primary' : 'bg-slate-300'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${theme.darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </div>
+                    <div className="text-xs font-semibold text-slate-700">
+                      {theme.darkMode ? 'Aktiv' : 'Av'}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">Hjørneradius</span>
+                  <select 
+                    value={theme.radius}
+                    onChange={(e) => updateThemeVariable('--radius-md', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-theme bg-white shadow-sm"
+                  >
+                    <option value="0px">Skarp (0px)</option>
+                    <option value="4px">Liten (4px)</option>
+                    <option value="8px">Medium (8px)</option>
+                    <option value="12px">Stor (12px)</option>
+                    <option value="16px">Ekstra stor (16px)</option>
+                  </select>
+                </label>
+
+                <div className="p-4 bg-slate-50 rounded-theme border border-slate-200">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Forhåndsvisning</p>
+                  <div className="flex gap-2">
+                    <button 
+                      className="px-4 py-2 text-xs font-bold text-white transition-all shadow-sm"
+                      style={{ backgroundColor: theme.primary, borderRadius: theme.radius }}
+                    >
+                      Knapp
+                    </button>
+                    <div 
+                      className="w-10 h-10 border border-slate-200 bg-white shadow-sm flex items-center justify-center"
+                      style={{ borderRadius: theme.radius }}
+                    >
+                      <Check size={16} className="text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <Sliders size={20} className="text-primary" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Visningsvalg</h3>
+                <p className="text-xs text-slate-500">
+                  Kontroller hva som vises i de ulike modulene.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-theme bg-slate-50">
+              <p className="text-sm text-slate-500 italic">Flere visningsvalg kommer snart...</p>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isCustomModalOpen && (
         <div

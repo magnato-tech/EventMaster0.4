@@ -429,7 +429,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
         </div>
         <button 
           onClick={() => setIsTemplateModalOpen(true)}
-          className="bg-amber-500 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all flex items-center gap-2"
+          className="bg-primary text-white px-6 py-3 rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all flex items-center gap-2"
         >
           <Plus size={20} /> Ny Master-mal
         </button>
@@ -442,12 +442,12 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
             <button 
               key={t.id}
               onClick={() => setSelectedTemplate(t)}
-              className={`w-full text-left px-5 py-4 rounded-2xl transition-all border ${selectedTemplate?.id === t.id ? 'bg-amber-50 border-amber-200 text-amber-800 shadow-sm' : 'bg-white border-transparent text-slate-600 hover:bg-slate-50'}`}
+              className={`w-full text-left px-5 py-4 rounded-theme transition-all border ${selectedTemplate?.id === t.id ? 'bg-primary-light border-primary text-primary shadow-sm' : 'bg-white border-transparent text-slate-600 hover:bg-slate-50'}`}
             >
               <div className="flex items-center gap-2">
                 <div
                   className="w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"
-                  style={{ backgroundColor: t.color || '#2563eb' }}
+                  style={{ backgroundColor: t.color || 'var(--color-primary)' }}
                 />
                 <p className="font-bold text-sm">{t.title}</p>
               </div>
@@ -458,11 +458,11 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
 
         <main className="lg:col-span-3 space-y-6">
           {selectedTemplate ? (
-            <div className="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
-              <div className="p-8 bg-amber-50 border-b border-amber-100 flex justify-between items-start">
-                <div className="flex-1">
+            <div className="bg-white rounded-theme border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-start">
+                <div className="flex-1 text-left">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="text-2xl font-bold text-amber-900">{selectedTemplate.title}</h4>
+                    <h4 className="text-2xl font-bold text-slate-900">{selectedTemplate.title}</h4>
                     <div className="flex gap-2 items-center">
                       {colorOptions.map(color => (
                         <button
@@ -488,37 +488,20 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                           title={color.name}
                         />
                       ))}
-                      <input
-                        type="color"
-                        value={selectedTemplate.color || '#2563eb'}
-                        onChange={e => {
-                          setDb(prev => ({
-                            ...prev,
-                            eventTemplates: prev.eventTemplates.map(t =>
-                              t.id === selectedTemplate.id
-                                ? { ...t, color: e.target.value }
-                                : t
-                            )
-                          }));
-                          setSelectedTemplate(prev => prev ? { ...prev, color: e.target.value } : null);
-                        }}
-                        className="w-8 h-8 rounded-full border-2 border-slate-300 cursor-pointer"
-                        title="Egendefinert farge"
-                      />
                     </div>
                   </div>
-                  <p className="text-amber-700/60 font-medium">Denne malen brukes som "oppskrift" for nye hendelser.</p>
+                  <p className="text-slate-500 font-medium">Denne malen brukes som "oppskrift" for nye hendelser.</p>
                 </div>
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setIsRecurringModalOpen(true)}
-                    className="p-3 bg-white rounded-xl text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm flex items-center gap-2 font-bold text-sm"
+                    className="p-3 bg-white rounded-theme text-primary hover:bg-primary-light transition-colors shadow-sm flex items-center gap-2 font-bold text-sm border border-slate-100"
                   >
                     <Repeat size={18} /> Planlegg Serie
                   </button>
                   <button 
                     onClick={() => handleDeleteTemplate(selectedTemplate.id)}
-                    className="p-3 bg-white rounded-xl text-red-500 hover:bg-red-50 transition-colors shadow-sm"
+                    className="p-3 bg-white rounded-theme text-red-500 hover:bg-red-50 transition-colors shadow-sm border border-slate-100"
                   >
                     <Trash2 size={20} />
                   </button>
@@ -530,14 +513,14 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                 <section>
                   <div className="flex items-center justify-between mb-6">
                     <h5 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Clock size={18} className="text-indigo-500" />
+                      <Clock size={18} className="text-primary" />
                       Standard Kjøreplan
                     </h5>
                     <div className="flex items-center gap-3">
                       <p className="text-[10px] text-slate-400 italic">Dra og slipp for å endre rekkefølge</p>
                       <button 
                         onClick={handleOpenAddModal}
-                        className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                        className="text-xs font-bold text-primary bg-primary-light px-3 py-1.5 rounded-theme hover:bg-primary-light/80 transition-colors flex items-center gap-1 border border-primary-light"
                       >
                         <Plus size={14} /> Ny Aktivitet
                       </button>
@@ -560,7 +543,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                             onDragStart={() => handleDragStart(idx)}
                             onDragOver={(e) => handleDragOver(e, idx)}
                             onDragEnd={handleDragEnd}
-                            className={`flex items-center gap-4 p-3 bg-slate-50 border rounded-xl transition-all group ${isDragged ? 'opacity-30' : 'opacity-100'} ${isOver ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-100'}`}
+                            className={`flex items-center gap-4 p-3 bg-slate-50 border rounded-theme transition-all group ${isDragged ? 'opacity-30' : 'opacity-100'} ${isOver ? 'border-primary bg-primary-light/30' : 'border-slate-100'}`}
                           >
                             <div className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-slate-500">
                               <GripVertical size={16} />
@@ -572,24 +555,24 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                                   <Clock size={10} /> {item.duration_minutes} min
                                 </span>
                                 {role && (
-                                  <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                  <span className="text-[10px] text-primary font-bold uppercase tracking-wider flex items-center gap-1 bg-primary-light px-2 py-0.5 rounded-theme border border-primary-light">
                                     <Shield size={10} /> {role.name}
                                   </span>
                                 )}
                                 {group && (
-                                  <span className="text-[10px] text-teal-600 font-bold uppercase tracking-wider flex items-center gap-1 bg-teal-50 px-2 py-0.5 rounded border border-teal-100">
+                                  <span className="text-[10px] text-teal-600 font-bold uppercase tracking-wider flex items-center gap-1 bg-teal-50 px-2 py-0.5 rounded-theme border border-teal-100">
                                     <Users size={10} /> {group.name}
                                   </span>
                                 )}
                                 {person && (
-                                  <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                  <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-theme border border-emerald-100">
                                     <UserCheck size={10} /> {person.name}
                                   </span>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-colors">
-                              <button onClick={() => handleOpenEditModal(item)} className="p-1.5 text-slate-300 hover:text-indigo-600"><Edit2 size={14} /></button>
+                              <button onClick={() => handleOpenEditModal(item)} className="p-1.5 text-slate-300 hover:text-primary"><Edit2 size={14} /></button>
                               <button onClick={() => onDeleteProgramItem(item.id)} className="p-1.5 text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
                             </div>
                           </div>
@@ -603,9 +586,9 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   <button 
                     disabled={!isUnsynced}
                     onClick={handleSyncStaffing}
-                    className={`flex items-center gap-3 px-10 py-4 rounded-2xl font-bold transition-all shadow-lg ${
+                    className={`flex items-center gap-3 px-10 py-4 rounded-theme font-bold transition-all shadow-lg ${
                       isUnsynced 
-                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 scale-105 animate-pulse shadow-indigo-500/50' 
+                        ? 'bg-primary text-white hover:bg-primary-hover scale-105 animate-pulse shadow-primary/50' 
                         : 'bg-slate-100 text-slate-400 grayscale cursor-not-allowed'
                     }`}
                   >
@@ -629,19 +612,19 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                 <section className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h5 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Shield size={18} className="text-indigo-500" />
+                      <Shield size={18} className="text-primary" />
                       Standard Bemanning (Vaktliste)
                     </h5>
                     <button 
                       onClick={() => setIsAddRoleModalOpen(true)}
-                      className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                      className="text-xs font-bold text-primary bg-primary-light px-3 py-1.5 rounded-theme hover:bg-primary-light/80 transition-colors flex items-center gap-1 border border-primary-light"
                     >
                       <Plus size={14} /> Legg til tilleggsvakt
                     </button>
                   </div>
 
                   {isUnsynced && (
-                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-theme flex items-center gap-3 animate-pulse">
                       <AlertCircle className="text-amber-500" size={20} />
                       <p className="text-xs font-bold text-amber-800">Endringer i kjøreplanen er ikke synkronisert ennå. Klikk på knappen over for å oppdatere vaktlisten.</p>
                     </div>
@@ -651,9 +634,9 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   {staffingData.programLinked.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                        <Library size={16} className="text-indigo-500" />
+                        <Library size={16} className="text-primary" />
                         <h6 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Oppgaver fra kjøreplan</h6>
-                        <span className="text-[9px] px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-bold">
+                        <span className="text-[9px] px-2 py-0.5 bg-primary-light text-primary rounded-full font-bold border border-primary-light">
                           {staffingData.programLinked.length}
                         </span>
                       </div>
@@ -661,21 +644,21 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                         {staffingData.programLinked.map(assign => (
                           <div 
                             key={assign.id} 
-                            className="p-4 rounded-xl border-2 border-indigo-100 bg-indigo-50/30 flex items-center justify-between group"
+                            className="p-4 rounded-theme border-2 border-primary-light/30 bg-primary-light/10 flex items-center justify-between group"
                           >
                             <div className="flex items-center gap-3 flex-1">
-                              <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0">
+                              <div className="p-2 bg-primary-light rounded-theme text-primary shrink-0">
                                 <Lock size={16} />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <span className="font-bold text-slate-800 text-sm block">{assign.roleName}</span>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[9px] px-1.5 py-0.5 bg-indigo-200 text-indigo-700 font-bold uppercase tracking-tighter rounded">Fra kjøreplan</span>
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-primary-light text-primary font-bold uppercase tracking-tighter rounded-theme border border-primary-light">Fra kjøreplan</span>
                                   <span className="text-[10px] font-semibold text-slate-700">• {assign.personName}</span>
                                 </div>
                               </div>
                             </div>
-                            <Info size={14} className="text-indigo-300 shrink-0" title="Denne oppgaven er hentet fra kjøreplanen og oppdateres automatisk ved synkronisering" />
+                            <Info size={14} className="text-primary/30 shrink-0" title="Denne oppgaven er hentet fra kjøreplanen og oppdateres automatisk ved synkronisering" />
                           </div>
                         ))}
                       </div>
@@ -698,11 +681,11 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                        return (
                         <div 
                           key={assign.id} 
-                          className="p-4 rounded-xl border-2 border-amber-200 bg-amber-50/30 hover:border-amber-300 shadow-sm flex flex-col gap-3 group"
+                          className="p-4 rounded-theme border-2 border-amber-200 bg-amber-50/30 hover:border-amber-300 shadow-sm flex flex-col gap-3 group"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 flex-1">
-                              <div className="p-2 bg-amber-100 rounded-lg text-amber-600 shrink-0">
+                              <div className="p-2 bg-amber-100 rounded-theme text-amber-600 shrink-0">
                                 <Shield size={16} />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -722,7 +705,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                           <select 
                             value={assign.person_id || ''} 
                             onChange={(e) => handleUpdateManualAssignment(assign.id, e.target.value || null)}
-                            className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-[11px] font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-2 bg-white border border-amber-300 rounded-theme text-[11px] font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500"
                           >
                             <option value="">Tildel person i mal...</option>
                             {recommended.length > 0 && (
@@ -743,7 +726,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
 
                   {/* HVIS INGEN OPPGAVER */}
                   {staffingData.programLinked.length === 0 && staffingData.manual.length === 0 && (
-                    <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                    <div className="text-center py-8 bg-slate-50 rounded-theme border-2 border-dashed border-slate-200">
                       <Shield size={24} className="text-slate-300 mx-auto mb-2" />
                       <p className="text-sm text-slate-500 font-semibold">Ingen bemanning satt opp ennå</p>
                       <p className="text-xs text-slate-400 mt-1">Legg til oppgaver i kjøreplanen eller legg til tilleggsvakter manuelt</p>
@@ -755,7 +738,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                 <section className="space-y-6 pt-6 border-t border-slate-200">
                   <div className="flex items-center justify-between">
                     <h5 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Calendar size={18} className="text-indigo-500" />
+                      <Calendar size={18} className="text-primary" />
                       Eksisterende Arrangementer
                     </h5>
                   </div>
@@ -770,7 +753,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                         {templateOccurrences.map(occ => (
                           <div 
                             key={occ.id} 
-                            className="p-4 rounded-xl border-2 border-slate-100 bg-white hover:border-indigo-200 shadow-sm flex items-center gap-4 group"
+                            className="p-4 rounded-theme border-2 border-slate-100 bg-white hover:border-primary-light shadow-sm flex items-center gap-4 group transition-all"
                           >
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
@@ -779,13 +762,13 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                                     type="date"
                                     value={occ.date}
                                     onChange={(e) => onUpdateOccurrence(occ.id, { date: e.target.value })}
-                                    className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
+                                    className="text-sm border border-slate-300 rounded-theme px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none font-semibold"
                                   />
                                   <input
                                     type="time"
                                     value={occ.time || ''}
                                     onChange={(e) => onUpdateOccurrence(occ.id, { time: e.target.value || undefined })}
-                                    className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
+                                    className="text-sm border border-slate-300 rounded-theme px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none font-semibold"
                                   />
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -793,12 +776,12 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                                     {new Intl.DateTimeFormat('no-NO', { weekday: 'short', day: 'numeric', month: 'short' }).format(parseLocalDate(occ.date))}
                                   </span>
                                   {occ.time && (
-                                    <span className="text-xs font-semibold text-indigo-600">{occ.time}</span>
+                                    <span className="text-xs font-semibold text-primary">{occ.time}</span>
                                   )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${
+                                <span className={`text-[9px] px-2 py-0.5 rounded-theme uppercase font-bold ${
                                   occ.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {occ.status}
@@ -812,7 +795,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                      <div className="text-center py-8 bg-slate-50 rounded-theme border-2 border-dashed border-slate-200">
                         <Calendar size={24} className="text-slate-300 mx-auto mb-2" />
                         <p className="text-sm text-slate-500 font-semibold">Ingen arrangementer opprettet ennå</p>
                         <p className="text-xs text-slate-400 mt-1">Bruk "Planlegg Serie" for å opprette arrangementer fra denne malen</p>
@@ -823,7 +806,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
               </div>
             </div>
           ) : (
-            <div className="h-64 flex flex-col items-center justify-center bg-slate-100 border-2 border-dashed rounded-3xl text-slate-400">
+            <div className="h-64 flex flex-col items-center justify-center bg-slate-100 border-2 border-dashed rounded-theme text-slate-400">
               <p>Opprett eller velg en mal for å starte planleggingen.</p>
             </div>
           )}
@@ -844,8 +827,8 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
             setProgPersonId('');
             setProgDescription('');
           }}></div>
-          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
-            <div className="p-6 bg-indigo-700 text-white flex justify-between items-center">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
+            <div className="p-6 bg-primary-hover text-white flex justify-between items-center">
               <h3 className="text-xl font-bold">{editingProgramItem ? 'Rediger Aktivitet' : 'Ny Aktivitet'}</h3>
               <button onClick={() => { 
                 setIsProgramModalOpen(false); 
@@ -862,7 +845,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
             <form onSubmit={handleSaveProgramItem} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tittel / Hva skjer?</label>
-                <input autoFocus required type="text" value={progTitle} onChange={e => setProgTitle(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="f.eks. Åpning & Velkomst" />
+                <input autoFocus required type="text" value={progTitle} onChange={e => setProgTitle(e.target.value)} className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary-light0 transition-all" placeholder="f.eks. Åpning & Velkomst" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -870,7 +853,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   <select 
                     value={progRoleId} 
                     onChange={e => { setProgRoleId(e.target.value); if(e.target.value) setProgGroupId(''); }} 
-                    className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                    className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary-light0 transition-all text-sm"
                   >
                     <option value="">Ingen valgt</option>
                     {db.serviceRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -889,7 +872,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                         if (leader) setProgPersonId(leader.person_id);
                       }
                     }} 
-                    className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                    className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary-light0 transition-all text-sm"
                   >
                     <option value="">Ingen valgt</option>
                     {db.groups.filter(g => g.category === GroupCategory.SERVICE).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -902,7 +885,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                 <select 
                   value={progPersonId} 
                   onChange={e => setProgPersonId(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                  className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary-light0 transition-all text-sm"
                 >
                   <option value="">Ingen fast person (Valgfritt)</option>
                   {(() => {
@@ -929,12 +912,12 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   value={progDescription} 
                   onChange={e => setProgDescription(e.target.value)} 
                   rows={3}
-                  className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm resize-none"
+                  className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary-light0 transition-all text-sm resize-none"
                   placeholder="Skriv inn tekst..."
                 />
               </div>
 
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
+              <button type="submit" className="w-full py-4 bg-primary text-white rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all">
                 {editingProgramItem ? 'Oppdater' : 'Legg til'}
               </button>
             </form>
@@ -946,8 +929,8 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
       {isAddRoleModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsAddRoleModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden text-left animate-in zoom-in-95">
-            <div className="p-4 bg-indigo-700 text-white flex justify-between items-center">
+          <div className="relative bg-white w-full max-w-sm rounded-theme shadow-2xl overflow-hidden text-left animate-in zoom-in-95">
+            <div className="p-4 bg-primary-hover text-white flex justify-between items-center">
               <h3 className="text-sm font-bold uppercase tracking-tight">Velg rolle fra katalog</h3>
               <button onClick={() => setIsAddRoleModalOpen(false)}><X size={18}/></button>
             </div>
@@ -956,10 +939,10 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                 <button 
                   key={sr.id} 
                   onClick={() => handleAddMasterRole(sr.id)} 
-                  className="w-full p-4 rounded-xl border text-left flex justify-between items-center hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                  className="w-full p-4 rounded-theme border text-left flex justify-between items-center hover:border-primary-light0 hover:bg-primary-light transition-all"
                 >
                   <div className="font-bold text-slate-800 text-sm">{sr.name}</div>
-                  <Plus size={16} className="text-indigo-400" />
+                  <Plus size={16} className="text-primary-light" />
                 </button>
               ))}
             </div>
@@ -971,7 +954,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
       {isTemplateModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsTemplateModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
             <div className="p-6 bg-amber-500 text-white flex justify-between items-center">
               <h3 className="text-xl font-bold">Ny Master-mal</h3>
               <button onClick={() => setIsTemplateModalOpen(false)}><X size={24} /></button>
@@ -979,7 +962,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
             <form onSubmit={handleCreateTemplate} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Navn på mal</label>
-                <input autoFocus required type="text" value={newTemplateTitle} onChange={e => setNewTemplateTitle(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500 transition-all" placeholder="f.eks. Lovsangsmøte" />
+                <input autoFocus required type="text" value={newTemplateTitle} onChange={e => setNewTemplateTitle(e.target.value)} className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-amber-500 transition-all" placeholder="f.eks. Lovsangsmøte" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Farge</label>
@@ -1007,7 +990,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   />
                 </div>
               </div>
-              <button type="submit" className="w-full py-4 bg-amber-500 text-white rounded-2xl font-bold shadow-lg hover:bg-amber-600 transition-all">Opprett Master</button>
+              <button type="submit" className="w-full py-4 bg-amber-500 text-white rounded-theme font-bold shadow-lg hover:bg-amber-600 transition-all">Opprett Master</button>
             </form>
           </div>
         </div>
@@ -1017,27 +1000,27 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
       {isRecurringModalOpen && selectedTemplate && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm shadow-xl" onClick={() => setIsRecurringModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
-            <div className="p-6 bg-indigo-700 text-white flex justify-between items-center">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
+            <div className="p-6 bg-primary text-white flex justify-between items-center">
               <h3 className="text-xl font-bold flex items-center gap-2"><Repeat size={20} /> Planlegg serie</h3>
               <button onClick={() => setIsRecurringModalOpen(false)}><X size={24} /></button>
             </div>
             <form onSubmit={handlePlanRecurring} className="p-6 space-y-4">
-              <div className="bg-slate-50 p-4 rounded-xl mb-4">
+              <div className="bg-slate-50 p-4 rounded-theme mb-4">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bruker mal:</p>
                 <p className="text-sm font-bold text-slate-800">{selectedTemplate.title}</p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Startdato</label>
-                <input required type="date" value={recStartDate} onChange={e => setRecStartDate(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                <input required type="date" value={recStartDate} onChange={e => setRecStartDate(e.target.value)} className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Start tidspunkt (valgfritt)</label>
-                <input type="time" value={recStartTime} onChange={e => setRecStartTime(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                <input type="time" value={recStartTime} onChange={e => setRecStartTime(e.target.value)} className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Siste dato</label>
-                <input required type="date" value={recEndDate} onChange={e => setRecEndDate(e.target.value)} className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                <input required type="date" value={recEndDate} onChange={e => setRecEndDate(e.target.value)} className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary transition-all bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Frekvens</label>
@@ -1059,7 +1042,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                       setRecMonthWeek(1);
                     }
                   }}
-                  className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary transition-all bg-white"
                 >
                   <option value="weekly">Hver uke</option>
                   <option value="biweekly">Hver 2. uke</option>
@@ -1074,7 +1057,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   <select 
                     value={recMonthWeek} 
                     onChange={(e) => setRecMonthWeek(parseInt(e.target.value))}
-                    className="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full px-4 py-3 border rounded-theme outline-none focus:ring-2 focus:ring-primary transition-all bg-white"
                   >
                     <option value={1}>1. uke</option>
                     <option value={2}>2. uke</option>
@@ -1100,7 +1083,7 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
                   </p>
                 </div>
               )}
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all">Start planlegging</button>
+              <button type="submit" className="w-full py-4 bg-primary text-white rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all">Start planlegging</button>
             </form>
           </div>
         </div>

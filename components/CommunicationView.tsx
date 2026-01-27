@@ -91,13 +91,13 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Bell className="text-indigo-600" size={24} /> Oppslag & Dialog
+            <Bell className="text-primary" size={24} /> Oppslag & Dialog
           </h2>
           <p className="text-sm text-slate-500">Intern kommunikasjon og systemvarsler.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
+          className="bg-primary text-white px-6 py-3 rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all flex items-center gap-2"
         >
           <Plus size={18} /> Ny Melding
         </button>
@@ -111,11 +111,11 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
           const linkedOcc = msg.occurrence_id ? db.eventOccurrences.find(o => o.id === msg.occurrence_id) : null;
           
           return (
-            <div key={msg.id} className={`bg-white rounded-[1.5rem] border shadow-sm overflow-hidden transition-all hover:shadow-md ${isSystem ? 'border-emerald-100 bg-emerald-50/20' : isFromMe ? 'border-slate-100' : 'border-indigo-100'}`}>
+            <div key={msg.id} className={`bg-white rounded-theme border shadow-sm overflow-hidden transition-all hover:shadow-md ${isSystem ? 'border-emerald-100 bg-emerald-50/20' : isFromMe ? 'border-slate-100' : 'border-primary-light'}`}>
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${isSystem ? 'bg-emerald-600 text-white' : isFromMe ? 'bg-slate-100 text-slate-600' : 'bg-indigo-600 text-white'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${isSystem ? 'bg-emerald-600 text-white' : isFromMe ? 'bg-slate-100 text-slate-600' : 'bg-primary text-white'}`}>
                       {isSystem ? <Sparkles size={20} /> : (sender?.name.charAt(0) || '?')}
                     </div>
                     <div>
@@ -123,7 +123,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                         {isSystem ? 'Systemvarsel' : sender?.name} {isFromMe && <span className="text-slate-400 font-normal ml-1">(Deg)</span>}
                       </p>
                       <div className="flex items-center gap-2">
-                         <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${isSystem ? 'bg-emerald-100 text-emerald-700' : isFromMe ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 text-indigo-700'}`}>
+                         <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-theme ${isSystem ? 'bg-emerald-100 text-emerald-700' : isFromMe ? 'bg-slate-100 text-slate-500' : 'bg-primary-light text-primary'}`}>
                            {isSystem ? 'Automatisk' : isFromMe ? 
                              (msg.recipient_id ? `Til: ${db.persons.find(p => p.id === msg.recipient_id)?.name || 'Ukjent'}` : `Til: ${getRoleLabel(msg.recipient_role as CoreRole)}`) : 
                              (msg.recipient_id ? 'Til deg' : getRoleLabel(sender?.core_role || CoreRole.GUEST))}
@@ -135,7 +135,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                     </div>
                   </div>
                   {(isFromMe || isSystem) && (
-                    <button onClick={() => onDeleteMessage(msg.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                    <button onClick={() => onDeleteMessage(msg.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-theme transition-all">
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -145,20 +145,20 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap mb-4">{msg.content}</p>
 
                 {linkedOcc && (
-                  <div className="mt-4 p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between">
+                  <div className="mt-4 p-3 bg-white border border-slate-100 rounded-theme flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                      <Calendar size={14} className="text-indigo-500" />
+                      <Calendar size={14} className="text-primary" />
                       {linkedOcc.title_override || db.eventTemplates.find(t => t.id === linkedOcc.template_id)?.title || 'Arrangement'} ({linkedOcc.date})
                     </div>
                     {onViewOccurrence ? (
                       <button
                         onClick={() => onViewOccurrence(linkedOcc.id)}
-                        className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
                       >
                         Vis detaljer <ArrowRight size={12} />
                       </button>
                     ) : (
-                      <span className="text-[10px] font-bold text-indigo-400 flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-primary/40 flex items-center gap-1">
                         Vis detaljer <ArrowRight size={12} />
                       </span>
                     )}
@@ -168,7 +168,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
             </div>
           );
         }) : (
-          <div className="bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] p-16 text-center">
+          <div className="bg-white border-2 border-dashed border-slate-200 rounded-theme p-16 text-center">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
               <MessageSquare size={32} />
             </div>
@@ -181,12 +181,12 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
-            <div className="p-6 bg-indigo-700 text-white flex justify-between items-center">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
+            <div className="p-6 bg-primary text-white flex justify-between items-center">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <Send size={20} /> Ny Melding
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-indigo-600 rounded-xl transition-all">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-primary-hover rounded-theme transition-all">
                 <X size={24} />
               </button>
             </div>
@@ -197,7 +197,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                 <select 
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value as CoreRole)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary font-bold text-sm bg-white"
                 >
                   {(currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) ? (
                     <option value={CoreRole.TEAM_LEADER}>Alle Gruppeledere</option>
@@ -216,7 +216,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Hva gjelder det?"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary font-medium text-sm bg-white"
                 />
               </div>
 
@@ -228,11 +228,11 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Skriv din melding her..."
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm resize-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary font-medium text-sm resize-none bg-white"
                 />
               </div>
 
-              <div className="bg-amber-50 p-4 rounded-xl flex gap-3 text-amber-700">
+              <div className="bg-amber-50 p-4 rounded-theme flex gap-3 text-amber-700">
                 <ShieldAlert size={20} className="shrink-0" />
                 <p className="text-[10px] font-bold uppercase leading-relaxed">
                   Denne meldingen er intern og kun synlig for de valgte rollene.
@@ -241,7 +241,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
 
               <button 
                 type="submit"
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4"
+                className="w-full py-4 bg-primary text-white rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all flex items-center justify-center gap-2 mt-4"
               >
                 <Send size={18} /> Send Melding
               </button>

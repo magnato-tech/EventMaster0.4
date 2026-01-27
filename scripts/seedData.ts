@@ -1,4 +1,4 @@
-import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task } from '../types';
+import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task, EventOccurrence, OccurrenceStatus, Assignment } from '../types';
 import { DEFAULT_EVENT_TEMPLATES } from './seedEventTemplates';
 
 // Hjelpefunksjon for å generere tilfeldig fødselsdato i et gitt år
@@ -15,6 +15,75 @@ const generateBirthDateFromAge = (age: number): string => {
   const currentYear = new Date().getFullYear();
   const birthYear = currentYear - age;
   return generateRandomBirthDate(birthYear);
+};
+
+const getAgeFromBirthDate = (birthDate?: string): number | null => {
+  if (!birthDate) return null;
+  const today = new Date();
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+const getNextNumericId = (prefix: string, ids: string[]): number => {
+  const maxId = ids.reduce((max, id) => {
+    if (!id.startsWith(prefix)) return max;
+    const num = Number(id.slice(prefix.length));
+    return Number.isFinite(num) ? Math.max(max, num) : max;
+  }, 0);
+  return maxId + 1;
+};
+
+const formatDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const generateSundayOccurrences = (templateId: string, monthsAhead = 2): EventOccurrence[] => {
+  const occurrences: EventOccurrence[] = [];
+  const start = new Date();
+  const end = new Date();
+  end.setMonth(end.getMonth() + monthsAhead);
+
+  const dayOfWeek = start.getDay(); // 0 = Sunday
+  const daysUntilSunday = (7 - dayOfWeek) % 7;
+  const current = new Date(start);
+  current.setDate(start.getDate() + daysUntilSunday);
+
+  let counter = 1;
+  while (current <= end) {
+    occurrences.push({
+      id: `occ${counter++}`,
+      template_id: templateId,
+      date: formatDate(current),
+      time: '11:00',
+      status: OccurrenceStatus.PUBLISHED
+    });
+    current.setDate(current.getDate() + 7);
+  }
+
+  return occurrences;
+};
+
+const generatePastorAssignments = (
+  occurrences: EventOccurrence[],
+  baseAssignments: Assignment[],
+  personId: string
+): Assignment[] => {
+  let nextAssignmentId = getNextNumericId('a', baseAssignments.map(a => a.id));
+  return occurrences.map(occ => ({
+    id: `a${nextAssignmentId++}`,
+    occurrence_id: occ.id,
+    service_role_id: 'sr2',
+    person_id: personId
+  }));
 };
 
 // Geografisk fordeling basert på Lillesand Misjonskirke
@@ -107,7 +176,17 @@ const LAST_NAMES = [
   'Moe', 'Strand', 'Lunde', 'Holm', 'Aas', 'Sørensen', 'Myklebust', 'Vik', 'Sandvik', 'Lie'
 ];
 
-export const DEMO_MAX_PEOPLE = 200;
+const MALE_NAMES = [
+  'Andreas', 'Benjamin', 'Daniel', 'Eirik', 'Fredrik', 'Henrik', 'Jonas', 'Kristian',
+  'Lars', 'Magnus', 'Marius', 'Martin', 'Mathias', 'Morten', 'Ole', 'Per', 'Sander', 'Thomas'
+];
+
+const FEMALE_NAMES = [
+  'Anna', 'Camilla', 'Emilie', 'Frida', 'Hanna', 'Helene', 'Ida', 'Ingrid',
+  'Julie', 'Kari', 'Kristine', 'Lina', 'Maria', 'Nina', 'Sara', 'Silje', 'Sofie', 'Tone'
+];
+
+export const DEMO_MAX_PEOPLE = 60;
 
 export const generatePersons = (
   count: number,
@@ -183,8 +262,20 @@ const generatedPersons = generatePersons(SINGLE_ADULT_COUNT, 1, true, 19, 75).ma
   };
 });
 
+const perPastor: Person = {
+  id: 'p21',
+  name: 'Per Pastor',
+  email: generateEmail('Per Pastor'),
+  phone: generatePhoneNumber(),
+  birth_date: generateRandomBirthDate(1975),
+  ...generateAddress(),
+  is_admin: true,
+  is_active: true,
+  core_role: CoreRole.ADMIN
+};
+
 export const INITIAL_DATA: AppState = {
-  persons: generatedPersons,
+  persons: [...generatedPersons, perPastor],
   groups: [
     { id: 'g1', name: 'Lovsangsteam', category: GroupCategory.SERVICE, leaderId: 'p5' },
     { id: 'g2', name: 'Teknikkteam', category: GroupCategory.SERVICE },
@@ -398,7 +489,7 @@ export const INITIAL_DATA: AppState = {
   eventOccurrences: [],
   assignments: [
     { id: 'a1', template_id: 't1', service_role_id: 'sr1', person_id: 'p1' }, // Møteleder
-    { id: 'a2', template_id: 't1', service_role_id: 'sr2', person_id: 'p2' }, // Taler
+    { id: 'a2', template_id: 't1', service_role_id: 'sr2', person_id: 'p21' }, // Taler (Per Pastor)
     { id: 'a3', template_id: 't1', service_role_id: 'sr3', person_id: 'p3' }, // Forbønn
     { id: 'a4', template_id: 't1', service_role_id: 'sr4', person_id: 'p4' }, // Barnekirke
     { id: 'a5', template_id: 't1', service_role_id: 'sr5', person_id: 'p5' }, // Lovsang
@@ -688,6 +779,102 @@ function populateFamilyData(baseData: AppState): AppState {
   };
 }
 
+const addDemoGroups = (baseData: AppState): AppState => {
+  const persons: Person[] = [...baseData.persons];
+  const groups: Group[] = [...baseData.groups];
+  const groupMembers: GroupMember[] = [...baseData.groupMembers];
+
+  let nextPersonId = getNextNumericId('p', persons.map(p => p.id));
+  let nextGroupId = getNextNumericId('g', groups.map(g => g.id));
+  let nextGroupMemberId = getNextNumericId('gm', groupMembers.map(gm => gm.id));
+
+  const existingNames = new Set(persons.map(p => p.name));
+  const ensureUniqueName = (name: string) => {
+    let candidate = name;
+    let suffix = 2;
+    while (existingNames.has(candidate)) {
+      candidate = `${name} ${suffix}`;
+      suffix += 1;
+    }
+    existingNames.add(candidate);
+    return candidate;
+  };
+
+  const createPerson = (name: string, age: number): Person => {
+    const address = generateAddress();
+    const person: Person = {
+      id: `p${nextPersonId++}`,
+      name: ensureUniqueName(name),
+      email: generateEmail(name),
+      phone: generatePhoneNumber(),
+      birth_date: generateBirthDateFromAge(age),
+      streetAddress: address.streetAddress,
+      postalCode: address.postalCode,
+      city: address.city,
+      is_admin: false,
+      is_active: true,
+      core_role: CoreRole.MEMBER
+    };
+    persons.push(person);
+    return person;
+  };
+
+  // Barnekirke: gruppe "Gul" med alle barn 0-5 år
+  const barneGroupId = `g${nextGroupId++}`;
+  groups.push({ id: barneGroupId, name: 'Barnekirke Gul', category: GroupCategory.BARNKIRKE });
+  let barneMembers = persons.filter(p => {
+    const age = getAgeFromBirthDate(p.birth_date);
+    return age !== null && age <= 5;
+  });
+  if (barneMembers.length === 0) {
+    barneMembers = Array.from({ length: 6 }, (_, idx) => {
+      const age = 1 + (idx % 5);
+      const firstName = FEMALE_NAMES[idx % FEMALE_NAMES.length];
+      const lastName = LAST_NAMES[(idx + nextPersonId) % LAST_NAMES.length];
+      return createPerson(`${firstName} ${lastName}`, age);
+    });
+  }
+  barneMembers.forEach(person => {
+    groupMembers.push({
+      id: `gm${nextGroupMemberId++}`,
+      group_id: barneGroupId,
+      person_id: person.id,
+      role: GroupRole.MEMBER
+    });
+  });
+
+  const createHusgruppe = (name: string, firstNames: string[], offset: number) => {
+    const groupId = `g${nextGroupId++}`;
+    groups.push({ id: groupId, name, category: GroupCategory.FELLOWSHIP });
+    for (let i = 0; i < 6; i += 1) {
+      const firstName = firstNames[(offset + i) % firstNames.length];
+      const lastName = LAST_NAMES[(offset + i) % LAST_NAMES.length];
+      const fullName = `${firstName} ${lastName}`;
+      const age = 25 + ((offset + i) % 26); // 25-50
+      const person = createPerson(fullName, age);
+      groupMembers.push({
+        id: `gm${nextGroupMemberId++}`,
+        group_id: groupId,
+        person_id: person.id,
+        role: GroupRole.MEMBER
+      });
+    }
+  };
+
+  // Husgrupper: 2 mannsgrupper og 2 kvinnegrupper med 6 medlemmer
+  createHusgruppe('Husgruppe Menn 1', MALE_NAMES, 0);
+  createHusgruppe('Husgruppe Menn 2', MALE_NAMES, 6);
+  createHusgruppe('Husgruppe Kvinner 1', FEMALE_NAMES, 0);
+  createHusgruppe('Husgruppe Kvinner 2', FEMALE_NAMES, 6);
+
+  return {
+    ...baseData,
+    persons,
+    groups,
+    groupMembers
+  };
+};
+
 // Helper function for deterministisk ID-generering basert på tittel og deadline
 const generateTaskId = (title: string, deadline: string): string => {
   // Bruk en enkel hash-funksjon for å generere konsistente IDer
@@ -804,12 +991,27 @@ const generateYearlyWheelTasks = (year: number): Task[] => {
 
 // Populer INITIAL_DATA med familiedata
 const populatedWithFamilies = populateFamilyData(INITIAL_DATA);
+const populatedWithDemoGroups = addDemoGroups(populatedWithFamilies);
+const defaultSundayOccurrences = generateSundayOccurrences('t1', 2);
+const pastorAssignments = generatePastorAssignments(
+  defaultSundayOccurrences,
+  populatedWithDemoGroups.assignments,
+  perPastor.id
+);
 
 // Legg til årshjul-tasks for inneværende år
 const currentYear = new Date().getFullYear();
 export const POPULATED_DATA: AppState = {
-  ...populatedWithFamilies,
-  tasks: [...populatedWithFamilies.tasks, ...generateYearlyWheelTasks(currentYear)]
+  ...populatedWithDemoGroups,
+  eventOccurrences: [
+    ...populatedWithDemoGroups.eventOccurrences,
+    ...defaultSundayOccurrences
+  ],
+  assignments: [
+    ...populatedWithDemoGroups.assignments,
+    ...pastorAssignments
+  ],
+  tasks: [...populatedWithDemoGroups.tasks, ...generateYearlyWheelTasks(currentYear)]
 };
 
 // Eksporter funksjon for backup av personer og grupper
