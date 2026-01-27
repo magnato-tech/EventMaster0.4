@@ -122,6 +122,10 @@ export const getDB = (): AppState => {
     }));
   }
 
+  if (!Array.isArray(parsedData.attendanceResponses)) {
+    parsedData.attendanceResponses = [];
+  }
+
   // Flett inn bilde-URLer fra bildebasen hvis de finnes
   try {
     const imageLibraryRaw = localStorage.getItem(IMAGE_LIBRARY_KEY);

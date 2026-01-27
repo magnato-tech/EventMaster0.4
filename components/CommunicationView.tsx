@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppState, Person, NoticeMessage, CoreRole, UUID } from '../types';
+import { AppState, Person, NoticeMessage, CoreRole, UUID, AttendanceResponse } from '../types';
 // Fix: Added ArrowRight to the imports from lucide-react
 import { Bell, Send, Trash2, User, Clock, Plus, X, ShieldAlert, MessageSquare, Sparkles, Calendar, ArrowRight } from 'lucide-react';
 
@@ -10,10 +10,11 @@ interface Props {
   onAddMessage: (msg: NoticeMessage) => void;
   onDeleteMessage: (id: UUID) => void;
   onMarkMessagesAsRead?: () => void;
-  onViewOccurrence?: (occurrenceId: UUID) => void;
+  onViewOccurrence?: (occurrenceId: UUID, tab?: 'program' | 'staff' | 'history') => void;
+  onUpdateAttendanceResponses: (updater: (prev: AttendanceResponse[]) => AttendanceResponse[]) => void;
 }
 
-const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage, onMarkMessagesAsRead, onViewOccurrence }) => {
+const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onDeleteMessage, onMarkMessagesAsRead, onViewOccurrence, onUpdateAttendanceResponses }) => {
   // Marker alle meldinger som lest når komponenten monteres
   useEffect(() => {
     if (onMarkMessagesAsRead) {
@@ -34,6 +35,7 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
     return (db.noticeMessages || []).filter(msg => {
       // Direkte melding til brukeren
       if (msg.recipient_id === currentUser.id) return true;
+      if (msg.recipient_ids && msg.recipient_ids.includes(currentUser.id)) return true;
       
       // Meldinger sendt av brukeren selv
       if (msg.sender_id === currentUser.id) return true;
@@ -78,12 +80,113 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
     }
   };
 
+  const getRecipientLabel = (msg: NoticeMessage, isFromMe: boolean) => {
+    if (isFromMe) {
+      if (msg.recipient_ids && msg.recipient_ids.length > 0) {
+        const names = msg.recipient_ids
+          .map(id => db.persons.find(p => p.id === id)?.name)
+          .filter(Boolean) as string[];
+        const preview = names.slice(0, 3).join(', ');
+        const rest = names.length > 3 ? ` +${names.length - 3}` : '';
+        return `Til: ${preview}${rest}`;
+      }
+      if (msg.recipient_id) {
+        return `Til: ${db.persons.find(p => p.id === msg.recipient_id)?.name || 'Ukjent'}`;
+      }
+      if (msg.recipient_role) {
+        return `Til: ${getRoleLabel(msg.recipient_role as CoreRole)}`;
+      }
+    }
+
+    if (msg.recipient_id || (msg.recipient_ids && msg.recipient_ids.length > 0)) {
+      return 'Til deg';
+    }
+    return getRoleLabel(currentUser.core_role);
+  };
+
   const getTimeAgo = (dateStr: string) => {
     const seconds = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
     if (seconds < 60) return 'Nå';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}t`;
     return `${Math.floor(seconds / 86400)}d`;
+  };
+
+  const getAttendanceStatusLabel = (status: AttendanceResponse['status']) => {
+    switch (status) {
+      case 'pending': return 'Ikke svart';
+      case 'accepted': return 'Akseptert';
+      case 'declined': return 'Avvist';
+      case 'withdrawn': return 'Frafalt';
+      case 'not_sent':
+      default: return 'Ikke sendt';
+    }
+  };
+
+  const getUserRolesForOccurrence = (occurrenceId: UUID) => {
+    const roleIds = new Set<string>();
+    db.programItems
+      .filter(p => p.occurrence_id === occurrenceId && p.service_role_id)
+      .forEach(p => {
+        const isOwner = p.person_id === currentUser.id;
+        const isParticipant = (p.participant_ids || []).includes(currentUser.id);
+        if (isOwner || isParticipant) {
+          roleIds.add(p.service_role_id as string);
+        }
+      });
+    db.assignments
+      .filter(a => a.occurrence_id === occurrenceId && a.person_id === currentUser.id)
+      .forEach(a => roleIds.add(a.service_role_id));
+    return Array.from(roleIds);
+  };
+
+  const handleAttendanceResponse = (occurrenceId: UUID, roleId: UUID, status: AttendanceResponse['status']) => {
+    const now = new Date().toISOString();
+    onUpdateAttendanceResponses(prev => {
+      const idx = prev.findIndex(r =>
+        r.occurrence_id === occurrenceId &&
+        r.person_id === currentUser.id &&
+        r.service_role_id === roleId
+      );
+      if (idx === -1) {
+        return [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            occurrence_id: occurrenceId,
+            person_id: currentUser.id,
+            service_role_id: roleId,
+            status,
+            responded_at: now
+          }
+        ];
+      }
+      const next = [...prev];
+      next[idx] = { ...next[idx], status, responded_at: now };
+      return next;
+    });
+
+    if (status === 'declined' || status === 'withdrawn') {
+      const occurrence = db.eventOccurrences.find(o => o.id === occurrenceId);
+      const ownerId = occurrence?.owner_id;
+      if (ownerId) {
+        const roleName = db.serviceRoles.find(r => r.id === roleId)?.name || 'rolle';
+        const title = status === 'declined' ? 'Avvist forespørsel' : 'Frafalt fra oppdrag';
+        const content = `${currentUser.name} har ${status === 'declined' ? 'avvist' : 'frafalt'} rollen "${roleName}".`;
+        onAddMessage({
+          id: crypto.randomUUID(),
+          sender_id: 'system',
+          recipient_id: ownerId,
+          title,
+          content: `${content} Finn erstatter.`,
+          created_at: now,
+          occurrence_id: occurrenceId,
+          message_type: 'info',
+          action_label: 'Finn erstatter',
+          isRead: false
+        });
+      }
+    }
   };
 
   return (
@@ -109,6 +212,10 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
           const sender = isSystem ? null : db.persons.find(p => p.id === msg.sender_id);
           const isFromMe = msg.sender_id === currentUser.id;
           const linkedOcc = msg.occurrence_id ? db.eventOccurrences.find(o => o.id === msg.occurrence_id) : null;
+          const isRecipient = msg.recipient_id === currentUser.id || (msg.recipient_ids || []).includes(currentUser.id);
+          const attendanceRoles = msg.message_type === 'attendance_request' && msg.occurrence_id && isRecipient
+            ? getUserRolesForOccurrence(msg.occurrence_id)
+            : [];
           
           return (
             <div key={msg.id} className={`bg-white rounded-theme border shadow-sm overflow-hidden transition-all hover:shadow-md ${isSystem ? 'border-emerald-100 bg-emerald-50/20' : isFromMe ? 'border-slate-100' : 'border-primary-light'}`}>
@@ -123,11 +230,9 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                         {isSystem ? 'Systemvarsel' : sender?.name} {isFromMe && <span className="text-slate-400 font-normal ml-1">(Deg)</span>}
                       </p>
                       <div className="flex items-center gap-2">
-                         <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-theme ${isSystem ? 'bg-emerald-100 text-emerald-700' : isFromMe ? 'bg-slate-100 text-slate-500' : 'bg-primary-light text-primary'}`}>
-                           {isSystem ? 'Automatisk' : isFromMe ? 
-                             (msg.recipient_id ? `Til: ${db.persons.find(p => p.id === msg.recipient_id)?.name || 'Ukjent'}` : `Til: ${getRoleLabel(msg.recipient_role as CoreRole)}`) : 
-                             (msg.recipient_id ? 'Til deg' : getRoleLabel(sender?.core_role || CoreRole.GUEST))}
-                         </span>
+                        <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-theme ${isSystem ? 'bg-emerald-100 text-emerald-700' : isFromMe ? 'bg-slate-100 text-slate-500' : 'bg-primary-light text-primary'}`}>
+                          {isSystem ? 'Automatisk' : getRecipientLabel(msg, isFromMe)}
+                        </span>
                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
                            <Clock size={10}/> {getTimeAgo(msg.created_at)}
                          </span>
@@ -144,6 +249,53 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                 <h4 className="text-base font-bold text-slate-800 mb-2">{msg.title}</h4>
                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap mb-4">{msg.content}</p>
 
+                {attendanceRoles.length > 0 && msg.occurrence_id && (
+                  <div className="mt-2 p-4 bg-slate-50 border border-slate-100 rounded-theme space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Svar på forespørsel</p>
+                    {attendanceRoles.map(roleId => {
+                      const role = db.serviceRoles.find(r => r.id === roleId);
+                      const response = (db.attendanceResponses || []).find(r =>
+                        r.occurrence_id === msg.occurrence_id &&
+                        r.person_id === currentUser.id &&
+                        r.service_role_id === roleId
+                      );
+                      const status = response?.status || 'pending';
+                      return (
+                        <div key={roleId} className="flex flex-wrap items-center gap-2 justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-700">{role?.name || 'Rolle'}</span>
+                            <span className="text-[9px] px-2 py-0.5 rounded-theme bg-white border border-slate-200 font-bold text-slate-500">
+                              {getAttendanceStatusLabel(status)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleAttendanceResponse(msg.occurrence_id as UUID, roleId as UUID, 'accepted')}
+                              className={`px-2 py-1 rounded-theme text-[10px] font-bold ${status === 'accepted' ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                            >
+                              Aksepter
+                            </button>
+                            <button
+                              onClick={() => handleAttendanceResponse(msg.occurrence_id as UUID, roleId as UUID, 'declined')}
+                              className={`px-2 py-1 rounded-theme text-[10px] font-bold ${status === 'declined' ? 'bg-rose-100 text-rose-700' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'}`}
+                            >
+                              Avvis
+                            </button>
+                            {status === 'accepted' && (
+                              <button
+                                onClick={() => handleAttendanceResponse(msg.occurrence_id as UUID, roleId as UUID, 'withdrawn')}
+                                className="px-2 py-1 rounded-theme text-[10px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100"
+                              >
+                                Frafall
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {linkedOcc && (
                   <div className="mt-4 p-3 bg-white border border-slate-100 rounded-theme flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
@@ -152,14 +304,14 @@ const CommunicationView: React.FC<Props> = ({ db, currentUser, onAddMessage, onD
                     </div>
                     {onViewOccurrence ? (
                       <button
-                        onClick={() => onViewOccurrence(linkedOcc.id)}
+                        onClick={() => onViewOccurrence(linkedOcc.id, msg.action_label === 'Finn erstatter' ? 'staff' : 'program')}
                         className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
                       >
-                        Vis detaljer <ArrowRight size={12} />
+                        {msg.action_label || 'Vis detaljer'} <ArrowRight size={12} />
                       </button>
                     ) : (
                       <span className="text-[10px] font-bold text-primary/40 flex items-center gap-1">
-                        Vis detaljer <ArrowRight size={12} />
+                        {msg.action_label || 'Vis detaljer'} <ArrowRight size={12} />
                       </span>
                     )}
                   </div>

@@ -14,6 +14,7 @@ import YearlyWheelView from './components/YearlyWheelView';
 import CommunicationView from './components/CommunicationView';
 import SettingsTab from './components/SettingsTab';
 import { User, Calendar, Settings, Users, ClipboardList, Target, Bell, BarChart3, Shield, SlidersHorizontal } from 'lucide-react';
+import { DEFAULT_EVENT_TEMPLATES } from './scripts/seedEventTemplates';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
 const parseLocalDate = (dateString: string): Date => {
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [initialGroupId, setInitialGroupId] = useState<UUID | null>(null);
   const [initialPersonId, setInitialPersonId] = useState<UUID | null>(null);
   const [calendarFocusOccurrenceId, setCalendarFocusOccurrenceId] = useState<UUID | null>(null);
+  const [calendarFocusTab, setCalendarFocusTab] = useState<'program' | 'staff' | 'history' | null>(null);
   const hasHydratedSync = useRef(false);
 
   useEffect(() => {
@@ -65,6 +67,36 @@ const App: React.FC = () => {
       (window as any).downloadPersonsAndGroups = downloadPersonsAndGroups;
     }
   }, [db]);
+
+  useEffect(() => {
+    const existingIds = new Set(db.eventTemplates.map(t => t.id));
+    const missing = DEFAULT_EVENT_TEMPLATES.filter(t => !existingIds.has(t.id));
+    if (missing.length === 0) return;
+    setDb(prev => ({
+      ...prev,
+      eventTemplates: [...prev.eventTemplates, ...missing]
+    }));
+  }, [db.eventTemplates]);
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setDb(prev => {
+      let changed = false;
+      const nextOccurrences = prev.eventOccurrences.map(occ => {
+        if (!occ.owner_id) return occ;
+        const occDate = parseLocalDate(occ.date);
+        if (occDate < today) {
+          changed = true;
+          return { ...occ, owner_id: undefined };
+        }
+        return occ;
+      });
+
+      return changed ? { ...prev, eventOccurrences: nextOccurrences } : prev;
+    });
+  }, [db.eventOccurrences]);
 
   useEffect(() => {
     if (!hasHydratedSync.current) {
@@ -535,6 +567,13 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleUpdateAttendanceResponses = useCallback((updater: (prev: any[]) => any[]) => {
+    setDb(prev => ({
+      ...prev,
+      attendanceResponses: updater(prev.attendanceResponses || [])
+    }));
+  }, []);
+
   const handleDeleteMessage = (id: UUID) => {
     setDb(prev => ({
       ...prev,
@@ -561,6 +600,7 @@ const App: React.FC = () => {
       
       // Sjekk personlig melding
       if (msg.recipient_id === currentUser.id) return true;
+      if (msg.recipient_ids && msg.recipient_ids.includes(currentUser.id)) return true;
 
       // Sjekk om meldingen er relevant for brukerens rolle
       if (currentUser.core_role === CoreRole.ADMIN || currentUser.core_role === CoreRole.PASTOR) {
@@ -585,7 +625,7 @@ const App: React.FC = () => {
         if (msg.isRead === true) return msg; // Allerede lest
         if (msg.sender_id === currentUser.id) return msg; // Sendt av brukeren selv
         
-        const isPersonal = msg.recipient_id === currentUser.id;
+        const isPersonal = msg.recipient_id === currentUser.id || (msg.recipient_ids || []).includes(currentUser.id);
         let isRelevantRole = false;
 
         // Sjekk om meldingen er relevant for brukerens rolle
@@ -695,8 +735,13 @@ const App: React.FC = () => {
             <CalendarView 
               db={db} 
               isAdmin={hasGroupLeaderRights} 
+              currentUser={currentUser}
               focusOccurrenceId={calendarFocusOccurrenceId}
-              onFocusHandled={() => setCalendarFocusOccurrenceId(null)}
+              focusTab={calendarFocusTab}
+              onFocusHandled={() => {
+                setCalendarFocusOccurrenceId(null);
+                setCalendarFocusTab(null);
+              }}
             onUpdateAssignment={handleUpdateAssignment}
             onAddAssignment={handleAddAssignment}
             onDeleteAssignment={handleDeleteAssignment}
@@ -709,6 +754,8 @@ const App: React.FC = () => {
             onUpdateProgramItem={handleUpdateProgramItem}
             onReorderProgramItems={handleReorderProgramItems}
             onDeleteProgramItem={handleDeleteProgramItem}
+            onAddMessage={handleAddMessage}
+            onUpdateAttendanceResponses={handleUpdateAttendanceResponses}
           />
           );
         })()}
@@ -748,10 +795,12 @@ const App: React.FC = () => {
             onAddMessage={handleAddMessage}
             onDeleteMessage={handleDeleteMessage}
             onMarkMessagesAsRead={handleMarkMessagesAsRead}
-            onViewOccurrence={(occurrenceId) => {
+            onViewOccurrence={(occurrenceId, tab) => {
               setCalendarFocusOccurrenceId(occurrenceId);
+              setCalendarFocusTab(tab || null);
               setActiveTab('calendar');
             }}
+            onUpdateAttendanceResponses={handleUpdateAttendanceResponses}
           />
         )}
         {activeTab === 'settings' && currentUser.is_admin && (

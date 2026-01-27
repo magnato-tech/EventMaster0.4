@@ -30,6 +30,7 @@ const normalizeBackup = (payload: Partial<AppState>): AppState => ({
   programItems: Array.isArray(payload.programItems) ? payload.programItems : [],
   tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
   noticeMessages: Array.isArray(payload.noticeMessages) ? payload.noticeMessages : [],
+  attendanceResponses: Array.isArray(payload.attendanceResponses) ? payload.attendanceResponses : [],
   changeLogs: Array.isArray(payload.changeLogs) ? payload.changeLogs : [],
   families: Array.isArray(payload.families) ? payload.families : [],
   familyMembers: Array.isArray(payload.familyMembers) ? payload.familyMembers : []
@@ -124,14 +125,18 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
         assignments: nextState.assignments.filter(a => !a.occurrence_id),
         programItems: nextState.programItems.filter(p => !p.occurrence_id)
       };
+      const withTemplates: AppState = {
+        ...sanitizedState,
+        eventTemplates: [...POPULATED_DATA.eventTemplates]
+      };
 
-      if (sanitizedState.persons.length === 0 && sanitizedState.groups.length === 0) {
+      if (withTemplates.persons.length === 0 && withTemplates.groups.length === 0) {
         throw new Error('Backup ser tom ut. Kjør "npm run seed:local" først.');
       }
 
-      onLoadBackup(sanitizedState);
+      onLoadBackup(withTemplates);
       setStatus('success');
-      setMessage(`Lastet demo-data: ${sanitizedState.persons.length} personer, ${sanitizedState.groups.length} grupper.`);
+      setMessage(`Lastet demo-data: ${withTemplates.persons.length} personer, ${withTemplates.groups.length} grupper.`);
     } catch (error) {
       console.error(error);
       setStatus('error');

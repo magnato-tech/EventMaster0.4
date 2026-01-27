@@ -13,6 +13,7 @@ export const EMPTY_DATA: AppState = {
   programItems: [],
   tasks: [],
   noticeMessages: [],
+  attendanceResponses: [],
   changeLogs: [],
   families: [],
   familyMembers: []

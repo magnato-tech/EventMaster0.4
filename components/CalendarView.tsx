@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppState, EventOccurrence, ServiceRole, UUID, ProgramItem, GroupCategory, Person, CoreRole, GroupRole } from '../types';
-import { ChevronLeft, ChevronRight, Plus, UserPlus, X, Trash2, ListChecks, Info, CheckCircle2, Calendar as CalendarIcon, Repeat, LayoutGrid, List as ListIcon, Clock, Users, User, Shield, AlertTriangle, RefreshCw, UserCheck, Sparkles, ArrowRight, Library, GripVertical, Edit2, History } from 'lucide-react';
+import { AppState, EventOccurrence, ServiceRole, UUID, ProgramItem, GroupCategory, Person, CoreRole, GroupRole, NoticeMessage, AttendanceResponse } from '../types';
+import { ChevronLeft, ChevronRight, Plus, UserPlus, X, Trash2, ListChecks, Info, CheckCircle2, Calendar as CalendarIcon, Repeat, LayoutGrid, List as ListIcon, Clock, Users, User, Shield, AlertTriangle, RefreshCw, UserCheck, Sparkles, ArrowRight, Library, GripVertical, Edit2, History, FileDown, MessageSquare } from 'lucide-react';
 import PersonAvatar from './PersonAvatar';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
@@ -20,9 +20,17 @@ const formatLocalDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const escapeHtml = (value: string) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 interface Props {
   db: AppState;
   isAdmin: boolean;
+  currentUser: Person;
   onUpdateAssignment: (id: string, personId: string | null) => void;
   onAddAssignment: (occurrenceId: string, roleId: string) => void;
   onDeleteAssignment: (id: string) => void;
@@ -42,13 +50,16 @@ interface Props {
   onUpdateProgramItem: (id: string, updates: Partial<ProgramItem>) => void;
   onReorderProgramItems: (occurrenceId: string, reorderedItems: ProgramItem[]) => void;
   onDeleteProgramItem: (id: string) => void;
+  onAddMessage: (msg: NoticeMessage) => void;
+  onUpdateAttendanceResponses: (updater: (prev: AttendanceResponse[]) => AttendanceResponse[]) => void;
   focusOccurrenceId?: UUID | null;
+  focusTab?: 'program' | 'staff' | 'history' | null;
   onFocusHandled?: () => void;
 }
 
 const CalendarView: React.FC<Props> = ({ 
-  db, isAdmin, onUpdateAssignment, onAddAssignment, onDeleteAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
-  onAddProgramItem, onUpdateProgramItem, onReorderProgramItems, onDeleteProgramItem, focusOccurrenceId, onFocusHandled
+  db, isAdmin, currentUser, onUpdateAssignment, onAddAssignment, onDeleteAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
+  onAddProgramItem, onUpdateProgramItem, onReorderProgramItems, onDeleteProgramItem, onAddMessage, onUpdateAttendanceResponses, focusOccurrenceId, focusTab, onFocusHandled
 }) => {
   const [selectedOccId, setSelectedOccId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
@@ -64,6 +75,10 @@ const CalendarView: React.FC<Props> = ({
   const [isEditOccurrenceModalOpen, setIsEditOccurrenceModalOpen] = useState(false);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [selectedDateForCreate, setSelectedDateForCreate] = useState<string>('');
+  const [isSendMessageOpen, setIsSendMessageOpen] = useState(false);
+  const [messageTitle, setMessageTitle] = useState('');
+  const [messageContent, setMessageContent] = useState('');
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
   
   // Form States
   const [progTitle, setProgTitle] = useState('');
@@ -71,6 +86,8 @@ const CalendarView: React.FC<Props> = ({
   const [progRoleId, setProgRoleId] = useState<string>('');
   const [progGroupId, setProgGroupId] = useState<string>('');
   const [progPersonId, setProgPersonId] = useState<string>('');
+  const [progParticipants, setProgParticipants] = useState<string[]>([]);
+  const [progParticipantId, setProgParticipantId] = useState<string>('');
   const [progDescription, setProgDescription] = useState<string>('');
   const [newOccurrenceTemplateId, setNewOccurrenceTemplateId] = useState<string>('');
   const [newOccurrenceDate, setNewOccurrenceDate] = useState<string>('');
@@ -92,6 +109,9 @@ const CalendarView: React.FC<Props> = ({
 
   const occurrences = [...db.eventOccurrences].sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
   const selectedOcc = db.eventOccurrences.find(o => o.id === selectedOccId);
+  const isOwner = Boolean(selectedOcc && selectedOcc.owner_id === currentUser.id);
+  const canEditEvent = Boolean(isAdmin || isOwner);
+  const canSendMessage = Boolean(currentUser.is_admin || isOwner);
 
   const formatTimeForInput = (value?: string) => {
     if (!value) return '';
@@ -145,13 +165,13 @@ const CalendarView: React.FC<Props> = ({
     const exists = db.eventOccurrences.some(o => o.id === focusOccurrenceId);
     if (exists) {
       setSelectedOccId(focusOccurrenceId);
-      setActiveTab('program');
+      setActiveTab(focusTab || 'program');
       setViewMode('list');
     }
     if (onFocusHandled) {
       onFocusHandled();
     }
-  }, [focusOccurrenceId, db.eventOccurrences, onFocusHandled]);
+  }, [focusOccurrenceId, focusTab, db.eventOccurrences, onFocusHandled]);
 
   const getTemplateTitle = (tid: string | null) => {
     if (!tid) return 'Ukjent';
@@ -204,6 +224,8 @@ const CalendarView: React.FC<Props> = ({
     setProgRoleId('');
     setProgGroupId('');
     setProgPersonId('');
+    setProgParticipants([]);
+    setProgParticipantId('');
     setProgDescription('');
     setIsProgramModalOpen(true);
   };
@@ -215,6 +237,8 @@ const CalendarView: React.FC<Props> = ({
     setProgRoleId(item.service_role_id || '');
     setProgGroupId(item.group_id || '');
     setProgPersonId(item.person_id || '');
+    setProgParticipants(item.participant_ids || []);
+    setProgParticipantId('');
     setProgDescription(item.description || '');
     setIsProgramModalOpen(true);
   };
@@ -231,6 +255,7 @@ const CalendarView: React.FC<Props> = ({
         service_role_id: progRoleId || null,
         group_id: progGroupId || null,
         person_id: progPersonId || null,
+        participant_ids: progParticipants.length > 0 ? progParticipants : undefined,
         description: progDescription.trim() || undefined
       });
     } else {
@@ -244,6 +269,7 @@ const CalendarView: React.FC<Props> = ({
         service_role_id: progRoleId || null,
         group_id: progGroupId || null,
         person_id: progPersonId || null,
+        participant_ids: progParticipants.length > 0 ? progParticipants : undefined,
         order: items.length,
         description: progDescription.trim() || undefined
       };
@@ -256,6 +282,8 @@ const CalendarView: React.FC<Props> = ({
     setProgRoleId('');
     setProgGroupId('');
     setProgPersonId('');
+    setProgParticipants([]);
+    setProgParticipantId('');
     setProgDescription('');
     setIsProgramModalOpen(false);
     setEditingProgramItem(null);
@@ -324,6 +352,19 @@ const CalendarView: React.FC<Props> = ({
     });
   }, [selectedOcc, db.programItems]);
 
+  useEffect(() => {
+    if (!selectedOcc || selectedOcc.owner_id) return;
+    const meetingLeadRole = db.serviceRoles.find(r => r.name.trim().toLowerCase() === 'møteleder');
+    if (!meetingLeadRole) return;
+    const leaderAssignment = db.assignments.find(a =>
+      a.occurrence_id === selectedOcc.id &&
+      a.service_role_id === meetingLeadRole.id &&
+      a.person_id
+    );
+    if (!leaderAssignment?.person_id) return;
+    onUpdateOccurrence(selectedOcc.id, { owner_id: leaderAssignment.person_id });
+  }, [selectedOcc, db.serviceRoles, db.assignments, onUpdateOccurrence]);
+
   const staffingData = useMemo(() => {
     if (!selectedOcc) return { programLinked: [], manual: [] };
     const programRoleIds = new Set(
@@ -336,6 +377,297 @@ const CalendarView: React.FC<Props> = ({
     const manual = allAssignments.filter(a => !programRoleIds.has(a.service_role_id));
     return { programLinked, manual };
   }, [selectedOcc, db.programItems, db.assignments]);
+
+  const attendanceMap = useMemo(() => {
+    const map = new Map<string, AttendanceResponse>();
+    (db.attendanceResponses || []).forEach(res => {
+      map.set(`${res.occurrence_id}:${res.person_id}:${res.service_role_id}`, res);
+    });
+    return map;
+  }, [db.attendanceResponses]);
+
+  const getAttendanceStatusLabel = (personId?: string | null, roleId?: string | null) => {
+    if (!selectedOcc || !personId || !roleId) {
+      return { label: 'Ikke tildelt', tone: 'bg-amber-100 text-amber-700' };
+    }
+    const response = attendanceMap.get(`${selectedOcc.id}:${personId}:${roleId}`);
+    const status = response?.status || 'not_sent';
+    switch (status) {
+      case 'pending':
+        return { label: 'Ikke svart', tone: 'bg-slate-100 text-slate-600' };
+      case 'accepted':
+        return { label: 'Akseptert', tone: 'bg-emerald-100 text-emerald-700' };
+      case 'declined':
+        return { label: 'Avvist', tone: 'bg-rose-100 text-rose-700' };
+      case 'withdrawn':
+        return { label: 'Frafalt', tone: 'bg-amber-100 text-amber-700' };
+      case 'not_sent':
+      default:
+        return { label: 'Ikke sendt', tone: 'bg-slate-100 text-slate-600' };
+    }
+  };
+
+  const programStaffRows = useMemo(() => {
+    if (!selectedOcc) return [];
+    const sorted = [...staffingData.programLinked].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    const rows = sorted.flatMap(assign => {
+      const programItem = db.programItems.find(p => p.occurrence_id === selectedOcc.id && p.service_role_id === assign.service_role_id);
+      const participants = programItem?.participant_ids || [];
+      const allPersonIds = [assign.person_id, ...participants].filter(Boolean) as string[];
+      const uniquePersonIds = Array.from(new Set(allPersonIds));
+      return uniquePersonIds.map((personId, idx) => ({
+        assign,
+        personId,
+        sequence: idx + 1,
+        total: uniquePersonIds.length
+      }));
+    });
+    return rows;
+  }, [selectedOcc, staffingData.programLinked, db.programItems]);
+
+  const manualStaffRows = useMemo(() => {
+    if (!selectedOcc) return [];
+    return staffingData.manual.flatMap(assign => {
+      const personId = assign.person_id;
+      return [{
+        assign,
+        personId,
+        sequence: 1,
+        total: 1
+      }];
+    });
+  }, [selectedOcc, staffingData.manual]);
+
+  const attendancePairs = useMemo(() => {
+    if (!selectedOcc) return [];
+    const pairs: Array<{ personId: string; roleId: string }> = [];
+    const seen = new Set<string>();
+    const addPair = (personId?: string | null, roleId?: string | null) => {
+      if (!personId || !roleId) return;
+      const key = `${personId}:${roleId}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      pairs.push({ personId, roleId });
+    };
+    programStaffRows.forEach(row => addPair(row.personId, row.assign.service_role_id));
+    manualStaffRows.forEach(row => addPair(row.personId, row.assign.service_role_id));
+    return pairs;
+  }, [selectedOcc, programStaffRows, manualStaffRows]);
+
+  const handleSendAttendanceRequests = () => {
+    if (!selectedOcc || attendancePairs.length === 0) return;
+    const now = new Date().toISOString();
+
+    onUpdateAttendanceResponses(prev => {
+      const next = [...prev];
+      attendancePairs.forEach(pair => {
+        const idx = next.findIndex(r =>
+          r.occurrence_id === selectedOcc.id &&
+          r.person_id === pair.personId &&
+          r.service_role_id === pair.roleId
+        );
+        if (idx === -1) {
+          next.push({
+            id: crypto.randomUUID(),
+            occurrence_id: selectedOcc.id,
+            person_id: pair.personId,
+            service_role_id: pair.roleId,
+            status: 'pending',
+            sent_at: now
+          });
+        } else if (next[idx].status === 'not_sent') {
+          next[idx] = { ...next[idx], status: 'pending', sent_at: now };
+        }
+      });
+      return next;
+    });
+
+    const recipients = Array.from(new Set(attendancePairs.map(p => p.personId)));
+    const title = `Svar på forespørsel: ${selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id)}`;
+    const msg: NoticeMessage = {
+      id: crypto.randomUUID(),
+      sender_id: currentUser.id,
+      recipient_ids: recipients,
+      title,
+      content: 'Du er satt opp på arrangementet. Vennligst svar på forespørselen i appen.',
+      created_at: now,
+      occurrence_id: selectedOcc.id,
+      message_type: 'attendance_request',
+      isRead: false
+    };
+    onAddMessage(msg);
+  };
+
+  const eventRoles = useMemo(() => {
+    if (!selectedOcc) return [];
+    const roleIds = new Set<string>();
+    db.programItems
+      .filter(p => p.occurrence_id === selectedOcc.id && p.service_role_id)
+      .forEach(p => roleIds.add(p.service_role_id as string));
+    db.assignments
+      .filter(a => a.occurrence_id === selectedOcc.id && a.service_role_id)
+      .forEach(a => roleIds.add(a.service_role_id));
+    return Array.from(roleIds).map(roleId => {
+      const role = db.serviceRoles.find(r => r.id === roleId);
+      const recipients = db.assignments
+        .filter(a => a.occurrence_id === selectedOcc.id && a.service_role_id === roleId && a.person_id)
+        .map(a => a.person_id as string);
+      const uniqueRecipients = Array.from(new Set(recipients));
+      return { roleId, roleName: role?.name || 'Ukjent rolle', recipients: uniqueRecipients };
+    });
+  }, [selectedOcc, db.programItems, db.assignments, db.serviceRoles]);
+
+  const openSendMessageModal = () => {
+    const allRoleIds = eventRoles.map(r => r.roleId);
+    setSelectedRoleIds(new Set(allRoleIds));
+    setMessageTitle('');
+    setMessageContent('');
+    setIsSendMessageOpen(true);
+  };
+
+  const handleSendEventMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOcc || !messageTitle.trim() || !messageContent.trim()) return;
+
+    const recipients = new Set<string>();
+    eventRoles.forEach(role => {
+      if (!selectedRoleIds.has(role.roleId)) return;
+      role.recipients.forEach(id => recipients.add(id));
+    });
+
+    const createdAt = new Date().toISOString();
+    const msg: NoticeMessage = {
+      id: crypto.randomUUID(),
+      sender_id: currentUser.id,
+      recipient_ids: Array.from(recipients),
+      title: messageTitle.trim(),
+      content: messageContent.trim(),
+      created_at: createdAt,
+      occurrence_id: selectedOcc.id,
+      isRead: false
+    };
+    onAddMessage(msg);
+
+    setIsSendMessageOpen(false);
+  };
+
+  const handleExportPdf = () => {
+    if (!selectedOcc) return;
+    const title = selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id);
+    const dateLabel = new Intl.DateTimeFormat('no-NO', { dateStyle: 'long' }).format(parseLocalDate(selectedOcc.date));
+    const timeLabel = selectedOcc.time ? `kl. ${selectedOcc.time}` : '';
+
+    const programRows = programWithTimes.map((item) => {
+      const role = db.serviceRoles.find(r => r.id === item.service_role_id);
+      const group = db.groups.find(g => g.id === item.group_id);
+      const person = db.persons.find(p => p.id === item.person_id);
+      return `
+        <tr>
+          <td>${escapeHtml(item.formattedTime || '')}</td>
+          <td>${escapeHtml(item.title || '')}</td>
+          <td>${escapeHtml(role?.name || '–')}</td>
+          <td>${escapeHtml(person?.name || group?.name || '–')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const renderStaffRows = (items: typeof staffingData.programLinked) => items.map(assign => {
+      const role = db.serviceRoles.find(r => r.id === assign.service_role_id);
+      const person = db.persons.find(p => p.id === assign.person_id);
+      const { label: status } = getAttendanceStatusLabel(assign.person_id, assign.service_role_id);
+      return `
+        <tr>
+          <td>${escapeHtml(role?.name || '–')}</td>
+          <td>${escapeHtml(person?.name || 'Ledig vakt')}</td>
+          <td>${escapeHtml(person?.phone || '–')}</td>
+          <td>${escapeHtml(status)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(title)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #0f172a; padding: 24px; }
+            h1 { font-size: 20px; margin: 0 0 6px; }
+            h2 { font-size: 14px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
+            .meta { font-size: 12px; color: #475569; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+            th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; }
+            th { background: #f8fafc; font-weight: 700; font-size: 11px; text-transform: uppercase; color: #64748b; }
+            .section { margin-top: 18px; }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(title)}</h1>
+          <div class="meta">${escapeHtml(dateLabel)} ${escapeHtml(timeLabel)}</div>
+
+          <div class="section">
+            <h2>Kjøreplan</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tid</th>
+                  <th>Post</th>
+                  <th>Rolle</th>
+                  <th>Navn/Gruppe</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${programRows || '<tr><td colspan="4">Ingen program tilgjengelig.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Bemanningsliste – Standard</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Rolle</th>
+                  <th>Navn</th>
+                  <th>Mobil</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderStaffRows(staffingData.programLinked) || '<tr><td colspan="4">Ingen standard bemanning.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Bemanningsliste – Tillegg</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Rolle</th>
+                  <th>Navn</th>
+                  <th>Mobil</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderStaffRows(staffingData.manual) || '<tr><td colspan="4">Ingen tilleggsvakter.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 200);
+  };
 
   const instructionRole = db.serviceRoles.find(sr => sr.id === roleInstructionsId);
 
@@ -602,6 +934,13 @@ const CalendarView: React.FC<Props> = ({
                 )}
               </div>
               <h3 className="text-xl font-bold text-slate-900">{selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id)}</h3>
+              {selectedOcc.owner_id && (
+                <div className="mt-2">
+                  <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-theme bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
+                    Eventleder: {db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ukjent'}
+                  </span>
+                </div>
+              )}
               {/* Tema-felt (synlig og redigerbart for admin) */}
               {isAdmin ? (
                 <div className="mt-2">
@@ -619,8 +958,61 @@ const CalendarView: React.FC<Props> = ({
               ) : selectedOcc.theme ? (
                 <p className="text-sm text-slate-600 italic mt-2">{selectedOcc.theme}</p>
               ) : null}
+
+              {currentUser.is_admin && (
+                <div className="mt-3 max-w-xs">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Eventleder</label>
+                  <select
+                    value={selectedOcc.owner_id || ''}
+                    onChange={(e) => {
+                      const nextOwner = e.target.value || undefined;
+                      onUpdateOccurrence(selectedOcc.id, { owner_id: nextOwner });
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-sm"
+                  >
+                    <option value="">Ikke satt</option>
+                    {db.persons
+                      .filter(p => p.is_active)
+                      .map(person => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {!currentUser.is_admin && selectedOcc.owner_id && (
+                <p className="text-xs text-slate-500 mt-2">
+                  Eventleder: {db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ukjent'}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleExportPdf();
+                }}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-theme transition-all group cursor-pointer"
+                title="Eksporter kjøreplan og bemanning (PDF)"
+                type="button"
+              >
+                <FileDown size={18} />
+              </button>
+              {canSendMessage && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openSendMessageModal();
+                  }}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-theme transition-all group cursor-pointer"
+                  title="Send melding til rolleinnhavere"
+                  type="button"
+                >
+                  <MessageSquare size={18} />
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={(e) => {
@@ -658,7 +1050,7 @@ const CalendarView: React.FC<Props> = ({
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <div className="flex justify-between items-center border-b pb-3 border-slate-100">
                     <h2 className="text-base font-bold text-slate-800 uppercase tracking-tight">Programoversikt</h2>
-                    {isAdmin && (
+                    {canEditEvent && (
                       <button onClick={handleOpenAddModal} className="px-3 py-1.5 bg-primary text-white rounded-theme text-[11px] font-bold shadow hover:bg-primary-hover transition-all flex items-center gap-1.5">
                         <Plus size={14} /> Ny Aktivitet
                       </button>
@@ -671,6 +1063,9 @@ const CalendarView: React.FC<Props> = ({
                       const group = db.groups.find(g => g.id === item.group_id);
                       const person = db.persons.find(p => p.id === item.person_id);
                       const { recommended, others } = getCategorizedPersons(item.service_role_id, item.group_id);
+                      const coPeople = (item.participant_ids || [])
+                        .map(id => db.persons.find(p => p.id === id))
+                        .filter(Boolean) as Person[];
                       
                       const isDragged = draggedIndex === idx;
                       const isOver = dragOverIndex === idx;
@@ -678,13 +1073,13 @@ const CalendarView: React.FC<Props> = ({
                       return (
                         <div 
                           key={item.id} 
-                          draggable={isAdmin}
+                          draggable={canEditEvent}
                           onDragStart={() => handleDragStart(idx)}
                           onDragOver={(e) => handleDragOver(e, idx)}
                           onDragEnd={handleDragEnd}
                           className={`p-3 bg-white border rounded-theme transition-all text-left group flex items-center gap-4 ${isDragged ? 'opacity-30' : 'opacity-100'} ${isOver ? 'border-primary bg-primary-light/30' : 'border-slate-100 hover:border-primary-light'}`}
                         >
-                          {isAdmin && (
+                          {canEditEvent && (
                             <div className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-slate-500">
                               <GripVertical size={16} />
                             </div>
@@ -699,7 +1094,7 @@ const CalendarView: React.FC<Props> = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-center">
                                 <h5 className="font-bold text-slate-800 text-sm truncate mr-2">{item.title}</h5>
-                                {isAdmin && (
+                                {canEditEvent && (
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                                     <button onClick={() => handleOpenEditModal(item)} className="p-1 text-slate-400 hover:text-primary">
                                       <Edit2 size={14}/>
@@ -717,8 +1112,8 @@ const CalendarView: React.FC<Props> = ({
                                 {role && <span className="text-[9px] text-primary font-bold uppercase tracking-wider bg-primary-light px-1.5 py-0.5 rounded-theme border border-primary-light flex items-center gap-1"><Library size={10}/> {role.name}</span>}
                                 {group && <span className="text-[9px] text-teal-600 font-bold uppercase tracking-wider bg-teal-50 px-1.5 py-0.5 rounded-theme border border-teal-100 flex items-center gap-1"><Users size={10}/> {group.name}</span>}
                                 
-                                <div className="ml-auto min-w-[180px]">
-                                  {isAdmin ? (
+                                <div className="ml-auto min-w-[220px] text-right">
+                                  {canEditEvent ? (
                                     <select 
                                       className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-theme text-[10px] outline-none focus:ring-2 focus:ring-primary font-medium"
                                       value={item.person_id || ''}
@@ -742,6 +1137,15 @@ const CalendarView: React.FC<Props> = ({
                                   )}
                                 </div>
                               </div>
+                              {coPeople.length > 0 && (
+                                <div className="mt-1 flex flex-col items-end gap-1 text-[10px] text-slate-600 font-semibold">
+                                  {coPeople.map(p => (
+                                    <span key={p.id} className="px-1.5 py-0.5 rounded-theme bg-slate-100 text-slate-600">
+                                      {p.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -770,91 +1174,39 @@ const CalendarView: React.FC<Props> = ({
                         <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Standard bemanning</h4>
                         <p className="text-[9px] text-slate-400 font-semibold">Oppgaver fra kjøreplanen (ikke redigerbar)</p>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {staffingData.programLinked
-                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-                        .map(assign => {
-                          const role = db.serviceRoles.find(r => r.id === assign.service_role_id);
-                          const person = db.persons.find(p => p.id === assign.person_id);
-                          return (
-                            <div key={assign.id} className={`p-3 bg-white border rounded-xl shadow-sm flex flex-col gap-2 transition-all ${person ? 'border-slate-100' : 'border-amber-100 bg-amber-50/20'}`}>
-                              <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2">
-                                  <Library size={12} className="text-indigo-400" />
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                                      {role?.name} {assign.display_order ? `(${assign.display_order})` : ''}
-                                    </p>
-                                    {role && (
-                                      <button 
-                                        onClick={() => setRoleInstructionsId(role.id)} 
-                                        className="text-slate-300 hover:text-indigo-600 transition-colors"
-                                        title="Se instruks"
-                                      >
-                                        <div className="w-3.5 h-3.5 rounded-full border border-current flex items-center justify-center">
-                                          <Info size={8} strokeWidth={3} />
-                                        </div>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {!person && <AlertTriangle size={12} className="text-amber-500" />}
-                                </div>
-                              </div>
-                              <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
-                                {person?.name || 'Ledig vakt'}
-                              </p>
-                              <div className="flex justify-between items-center mt-1">
-                                <span className="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold uppercase tracking-tighter rounded w-fit">
-                                  Fra kjøreplan
-                                </span>
-                                {isAdmin && (
-                                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
-                                    <span className="text-[9px] text-slate-400 font-medium italic">Endres i kjøreplan</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      {staffingData.programLinked.length === 0 && (
-                        <div className="text-xs text-slate-400 font-semibold italic col-span-full">
-                          Ingen oppgaver fra kjøreplanen ennå.
-                        </div>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tilleggsvakter</h4>
-                        <p className="text-[9px] text-slate-400 font-semibold">Manuelt lagt til (kan redigeres)</p>
-                      </div>
-                      {isAdmin && (
-                        <button onClick={() => setIsAddRoleModalOpen(true)} className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:text-primary-hover">
-                          <Plus size={12} /> Legg til ekstra vakt
+                      {canSendMessage && (
+                        <button
+                          onClick={handleSendAttendanceRequests}
+                          disabled={attendancePairs.length === 0}
+                          className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:text-primary-hover disabled:text-slate-300 disabled:cursor-not-allowed"
+                        >
+                          <MessageSquare size={12} /> Send forespørsel
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {staffingData.manual
-                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-                        .map(assign => {
-                          const role = db.serviceRoles.find(r => r.id === assign.service_role_id);
-                          const person = db.persons.find(p => p.id === assign.person_id);
-                          const { recommended, others } = getCategorizedPersons(assign.service_role_id);
-                          return (
-                            <div key={assign.id} className={`p-3 bg-white border rounded-theme shadow-sm flex flex-col gap-2 transition-all ${person ? 'border-slate-100' : 'border-amber-100 bg-amber-50/20'}`}>
-                              <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2">
-                                  <Library size={12} className="text-primary-light" />
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                                      {role?.name} {assign.display_order ? `(${assign.display_order})` : ''}
-                                    </p>
+                    <div className="bg-white border border-slate-200 rounded-theme shadow-sm overflow-x-auto">
+                      <table className="min-w-full text-left">
+                        <thead className="bg-slate-50/70 text-[10px] text-slate-400 uppercase font-bold">
+                          <tr>
+                            <th className="px-3 py-2">Rolle</th>
+                            <th className="px-3 py-2">Navn</th>
+                            <th className="px-3 py-2">Mobil</th>
+                            <th className="px-3 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {programStaffRows.map(row => {
+                            const role = db.serviceRoles.find(r => r.id === row.assign.service_role_id);
+                            const person = db.persons.find(p => p.id === row.personId);
+                            const { label: statusLabel, tone: statusTone } = getAttendanceStatusLabel(row.personId, row.assign.service_role_id);
+                            return (
+                              <tr key={`${row.assign.id}-${row.personId}`}>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <Library size={12} className="text-primary-light" />
+                                    <span className="font-semibold text-slate-700">
+                                      {role?.name || 'Ukjent rolle'} {row.total > 1 ? `(${row.sequence})` : ''}
+                                    </span>
                                     {role && (
                                       <button 
                                         onClick={() => setRoleInstructionsId(role.id)} 
@@ -866,50 +1218,140 @@ const CalendarView: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     )}
+                                    {!person && <AlertTriangle size={12} className="text-amber-500" />}
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {!person && <AlertTriangle size={12} className="text-amber-500" />}
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onDeleteAssignment(assign.id)}
-                                      className="p-1 rounded-theme text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
-                                      title="Slett tilleggsvakt"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              <p className={`text-sm font-bold leading-tight ${person ? 'text-slate-800' : 'text-slate-300 italic'}`}>
-                                {person?.name || 'Ledig vakt'}
-                              </p>
-                              {isAdmin && (
-                                <select 
-                                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-theme text-[10px] outline-none focus:ring-2 focus:ring-primary font-bold text-slate-700 mt-1" 
-                                  value={assign.person_id || ''} 
-                                  onChange={(e) => onUpdateAssignment(assign.id, e.target.value || null)}
-                                >
-                                  <option value="">Tildel person...</option>
-                                  {recommended.length > 0 && (
-                                    <optgroup label="Anbefalt Team">
-                                      {recommended.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </optgroup>
-                                  )}
-                                  <optgroup label="Alle Personer">
-                                    {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                  </optgroup>
-                                </select>
-                              )}
-                            </div>
-                          );
-                        })}
-                      {staffingData.manual.length === 0 && (
-                        <div className="text-xs text-slate-400 font-semibold italic col-span-full">
-                          Ingen tilleggsvakter lagt til.
-                        </div>
+                                </td>
+                                <td className={`px-3 py-2 font-semibold ${person ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                                  {person?.name || 'Ledig vakt'}
+                                </td>
+                                <td className="px-3 py-2 text-slate-500">
+                                  {person?.phone || '–'}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className={`px-2 py-0.5 rounded-theme text-[10px] font-bold w-fit ${statusTone}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {programStaffRows.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="px-3 py-3 text-xs text-slate-400 font-semibold italic">
+                                Ingen oppgaver fra kjøreplanen ennå.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tilleggsvakter</h4>
+                        <p className="text-[9px] text-slate-400 font-semibold">Manuelt lagt til (kan redigeres)</p>
+                      </div>
+                      {canEditEvent && (
+                        <button onClick={() => setIsAddRoleModalOpen(true)} className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:text-primary-hover">
+                          <Plus size={12} /> Legg til ekstra vakt
+                        </button>
                       )}
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-theme shadow-sm overflow-x-auto">
+                      <table className="min-w-full text-left">
+                        <thead className="bg-slate-50/70 text-[10px] text-slate-400 uppercase font-bold">
+                          <tr>
+                            <th className="px-3 py-2">Rolle</th>
+                            <th className="px-3 py-2">Navn</th>
+                            <th className="px-3 py-2">Mobil</th>
+                            <th className="px-3 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {manualStaffRows.map(row => {
+                            const role = db.serviceRoles.find(r => r.id === row.assign.service_role_id);
+                            const person = db.persons.find(p => p.id === row.personId);
+                            const { recommended, others } = getCategorizedPersons(row.assign.service_role_id);
+                            const { label: statusLabel, tone: statusTone } = getAttendanceStatusLabel(row.personId, row.assign.service_role_id);
+                            return (
+                              <tr key={`${row.assign.id}-${row.personId || 'empty'}`} className={person ? '' : 'bg-amber-50/20'}>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <Library size={12} className="text-primary-light" />
+                                      <span className="font-semibold text-slate-700">
+                                        {role?.name || 'Ukjent rolle'} {row.total > 1 ? `(${row.sequence})` : ''}
+                                      </span>
+                                      {role && (
+                                        <button 
+                                          onClick={() => setRoleInstructionsId(role.id)} 
+                                          className="text-slate-300 hover:text-primary transition-colors"
+                                          title="Se instruks"
+                                        >
+                                          <div className="w-3.5 h-3.5 rounded-full border border-current flex items-center justify-center">
+                                            <Info size={8} strokeWidth={3} />
+                                          </div>
+                                        </button>
+                                      )}
+                                      {!person && <AlertTriangle size={12} className="text-amber-500" />}
+                                    </div>
+                                    {canEditEvent && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onDeleteAssignment(row.assign.id)}
+                                        className="p-1 rounded-theme text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                                        title="Slett tilleggsvakt"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  {canEditEvent ? (
+                                    <select 
+                                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-theme text-[10px] outline-none focus:ring-2 focus:ring-primary font-bold text-slate-700" 
+                                      value={row.assign.person_id || ''} 
+                                      onChange={(e) => onUpdateAssignment(row.assign.id, e.target.value || null)}
+                                    >
+                                      <option value="">Tildel person...</option>
+                                      {recommended.length > 0 && (
+                                        <optgroup label="Anbefalt Team">
+                                          {recommended.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </optgroup>
+                                      )}
+                                      <optgroup label="Alle Personer">
+                                        {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                      </optgroup>
+                                    </select>
+                                  ) : (
+                                    <span className={`font-semibold ${person ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                                      {person?.name || 'Ledig vakt'}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-slate-500">
+                                  {person?.phone || '–'}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className={`px-2 py-0.5 rounded-theme text-[10px] font-bold ${statusTone}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {manualStaffRows.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="px-3 py-3 text-xs text-slate-400 font-semibold italic">
+                                Ingen tilleggsvakter lagt til.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
                 </div>
@@ -963,6 +1405,92 @@ const CalendarView: React.FC<Props> = ({
         </div>
       )}
 
+      {isSendMessageOpen && selectedOcc && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative bg-white w-full max-w-md rounded-theme shadow-2xl overflow-hidden text-left animate-in zoom-in-95">
+            <div className="p-5 bg-primary text-white flex justify-between items-center">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <MessageSquare size={18} /> Send melding til rolleinnhavere
+              </h3>
+              <button onClick={() => setIsSendMessageOpen(false)} className="p-2 hover:bg-primary-hover rounded-theme transition-all">
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              onSubmit={handleSendEventMessage}
+              className="p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Roller</label>
+                <div className="space-y-2">
+                  {eventRoles.length === 0 && (
+                    <p className="text-xs text-slate-400 italic">Ingen roller er satt opp på arrangementet.</p>
+                  )}
+                  {eventRoles.map(role => {
+                    const isChecked = selectedRoleIds.has(role.roleId);
+                    return (
+                      <label key={role.roleId} className="flex items-center justify-between gap-2 p-2 border border-slate-200 rounded-theme bg-slate-50/50">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setSelectedRoleIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(role.roleId)) next.delete(role.roleId);
+                                else next.add(role.roleId);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 text-primary border-slate-300 rounded-theme focus:ring-primary"
+                          />
+                          <span className="text-xs font-semibold text-slate-700">{role.roleName}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          {role.recipients.length} mottaker{role.recipients.length === 1 ? '' : 'e'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Overskrift</label>
+                <input
+                  required
+                  type="text"
+                  value={messageTitle}
+                  onChange={(e) => setMessageTitle(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-sm"
+                  placeholder="F.eks. Oppmøte og info"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Melding</label>
+                <textarea
+                  required
+                  rows={5}
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+                  placeholder="Skriv meldingen til rolleinnhaverne..."
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-primary text-white rounded-theme font-bold shadow-lg hover:bg-primary-hover transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
+                disabled={selectedRoleIds.size === 0}
+              >
+                Send melding
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Instruks-Modal */}
       {roleInstructionsId && instructionRole && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1009,7 +1537,7 @@ const CalendarView: React.FC<Props> = ({
           <div className="relative bg-white w-full max-w-sm rounded-theme shadow-xl overflow-hidden text-left animate-in zoom-in-95">
             <div className="p-4 bg-primary text-white flex justify-between items-center">
               <h3 className="text-sm font-bold">{editingProgramItem ? 'Rediger Aktivitet' : 'Ny Aktivitet'}</h3>
-              <button onClick={() => { 
+                <button onClick={() => { 
                 setIsProgramModalOpen(false); 
                 setEditingProgramItem(null);
                 // Reset alle felter
@@ -1018,6 +1546,8 @@ const CalendarView: React.FC<Props> = ({
                 setProgRoleId('');
                 setProgGroupId('');
                 setProgPersonId('');
+                  setProgParticipants([]);
+                  setProgParticipantId('');
                 setProgDescription('');
               }}><X size={18} /></button>
             </div>
@@ -1091,6 +1621,58 @@ const CalendarView: React.FC<Props> = ({
                   <option value="">Ingen valgt</option>
                   {db.persons.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Medansvarlige</label>
+                <div className="flex gap-2">
+                  <select
+                    value={progParticipantId}
+                    onChange={(e) => setProgParticipantId(e.target.value)}
+                    className="flex-1 px-2 py-2 border rounded-theme text-[11px] font-medium focus:ring-1 focus:ring-primary outline-none"
+                  >
+                    <option value="">Velg person...</option>
+                    {db.persons
+                      .filter(p => p.is_active)
+                      .filter(p => p.id !== progPersonId)
+                      .filter(p => !progParticipants.includes(p.id))
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!progParticipantId) return;
+                      if (progParticipants.includes(progParticipantId)) return;
+                      setProgParticipants(prev => [...prev, progParticipantId]);
+                      setProgParticipantId('');
+                    }}
+                    className="px-3 py-2 bg-primary text-white rounded-theme text-[11px] font-bold shadow hover:bg-primary-hover transition-all"
+                    title="Legg til medansvarlig"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+                {progParticipants.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {progParticipants.map(id => {
+                      const person = db.persons.find(p => p.id === id);
+                      return (
+                        <span key={id} className="inline-flex items-center gap-2 px-2 py-0.5 rounded-theme bg-primary-light text-primary text-[10px] font-semibold">
+                          {person?.name || 'Ukjent'}
+                          <button
+                            type="button"
+                            onClick={() => setProgParticipants(prev => prev.filter(pid => pid !== id))}
+                            className="text-primary hover:text-primary-hover"
+                            title="Fjern"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tekstboks</label>

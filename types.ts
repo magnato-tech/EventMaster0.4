@@ -115,6 +115,7 @@ export interface EventOccurrence {
   status: OccurrenceStatus;
   last_synced_at?: string;
   color?: string; // Farge for event (arves fra template)
+  owner_id?: UUID; // Møteleder (event-spesifikk tilgang)
 }
 
 export interface Assignment {
@@ -135,6 +136,7 @@ export interface ProgramItem {
   service_role_id?: UUID | null;
   group_id?: UUID | null;
   person_id?: UUID | null;
+  participant_ids?: UUID[]; // Medansvarlige (samme rolle som aktiviteten)
   order: number;
   description?: string; // Tekstbeskrivelse/tema for programposten
 }
@@ -162,11 +164,24 @@ export interface NoticeMessage {
   sender_id: UUID | 'system';
   recipient_role?: CoreRole; 
   recipient_id?: UUID;
+  recipient_ids?: UUID[];
   title: string;
   content: string;
+  message_type?: 'attendance_request' | 'info';
+  action_label?: string;
   created_at: string;
   occurrence_id?: UUID;
   isRead?: boolean; // Standard false hvis ikke satt
+}
+
+export interface AttendanceResponse {
+  id: UUID;
+  occurrence_id: UUID;
+  person_id: UUID;
+  service_role_id: UUID;
+  status: 'not_sent' | 'pending' | 'accepted' | 'declined' | 'withdrawn';
+  sent_at?: string;
+  responded_at?: string;
 }
 
 export interface Family {
@@ -198,6 +213,7 @@ export interface AppState {
   programItems: ProgramItem[];
   tasks: Task[];
   noticeMessages: NoticeMessage[];
+  attendanceResponses: AttendanceResponse[];
   changeLogs: ChangeLog[];
   families: Family[]; // Ny
   familyMembers: FamilyMember[]; // Ny
