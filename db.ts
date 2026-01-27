@@ -2,6 +2,7 @@
 import { AppState, UUID, Assignment, Task, EventOccurrence, ProgramItem, OccurrenceStatus, Person, CoreRole } from './types';
 import { EMPTY_DATA } from './constants';
 import { DEFAULT_EVENT_TEMPLATES } from './scripts/seedEventTemplates';
+import { POPULATED_DATA } from './scripts/seedData';
 
 const DB_KEY = 'eventmaster_lmk_db';
 const IMAGE_LIBRARY_KEY = 'eventmaster_image_library';
@@ -14,6 +15,13 @@ const DEFAULT_ADMIN: Person = {
   is_admin: true,
   is_active: true,
   core_role: CoreRole.ADMIN
+};
+
+const shouldLoadDemoByDefault = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const envFlag = (import.meta as any).env?.VITE_DEFAULT_DEMO;
+  if (envFlag === 'true') return true;
+  return window.location.hostname.includes('vercel.app');
 };
 
 export const ensureAdmin = (state: AppState): AppState => {
@@ -108,8 +116,8 @@ export const getDB = (): AppState => {
     // Bruk backup-data hvis localStorage er tom
     parsedData = { ...EMPTY_DATA, ...backupData } as AppState;
   } else if (!data) {
-    // Ingen data i localStorage eller backup, bruk tomt datasett
-    parsedData = EMPTY_DATA;
+    // Ingen data i localStorage eller backup
+    parsedData = shouldLoadDemoByDefault() ? POPULATED_DATA : EMPTY_DATA;
   } else {
     parsedData = JSON.parse(data);
   }

@@ -533,6 +533,7 @@ export const INITIAL_DATA: AppState = {
       isRead: false
     }
   ],
+  attendanceResponses: [],
   changeLogs: [],
   families: [],
   familyMembers: []
@@ -1011,6 +1012,7 @@ export const POPULATED_DATA: AppState = {
     ...populatedWithDemoGroups.assignments,
     ...pastorAssignments
   ],
+  attendanceResponses: [],
   tasks: [...populatedWithDemoGroups.tasks, ...generateYearlyWheelTasks(currentYear)]
 };
 

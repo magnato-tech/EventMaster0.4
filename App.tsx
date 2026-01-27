@@ -138,20 +138,25 @@ const App: React.FC = () => {
     // 1. Aggreger unike [Rolle + Person] fra programmet
     const rolePersonMap = new Map<string, string[]>();
     programItems.forEach(item => {
-      if (item.service_role_id) {
-        if (!rolePersonMap.has(item.service_role_id)) {
-          rolePersonMap.set(item.service_role_id, []);
-        }
-        const assignedPersons = rolePersonMap.get(item.service_role_id)!;
-        if (item.person_id && !assignedPersons.includes(item.person_id)) {
-          assignedPersons.push(item.person_id);
-        }
+      if (!item.service_role_id) return;
+      if (!rolePersonMap.has(item.service_role_id)) {
+        rolePersonMap.set(item.service_role_id, []);
       }
+      const assignedPersons = rolePersonMap.get(item.service_role_id)!;
+      if (item.person_id && !assignedPersons.includes(item.person_id)) {
+        assignedPersons.push(item.person_id);
+      }
+      (item.participant_ids || []).forEach(participantId => {
+        if (!assignedPersons.includes(participantId)) {
+          assignedPersons.push(participantId);
+        }
+      });
     });
 
     const newAssignments: Assignment[] = [];
     const logs: ChangeLog[] = [];
     const notices: NoticeMessage[] = [];
+    const attendanceResponses = [...(state.attendanceResponses || [])];
 
     rolePersonMap.forEach((personIds, roleId) => {
       personIds.forEach((pId, index) => {
@@ -199,19 +204,41 @@ const App: React.FC = () => {
           isRead: false
         });
 
-        // Personlig melding til den som har fått oppgaven
+        // Personlig forespørsel til den som har fått oppgaven
         if (na.person_id) {
           const eventTitle = occ.title_override || state.eventTemplates.find(t => t.id === occ.template_id)?.title || 'Arrangement';
           notices.push({
             id: crypto.randomUUID(),
             sender_id: 'system',
             recipient_id: na.person_id,
-            title: 'Ny oppgave tildelt',
-            content: `Du har blitt satt opp som ${roleName} på ${eventTitle} (${occ.date}).`,
+            title: `Svar på forespørsel: ${eventTitle}`,
+            content: `Du er satt opp som ${roleName} på ${eventTitle} (${occ.date}). Vennligst svar i appen.`,
             created_at: new Date().toISOString(),
             occurrence_id: occurrenceId,
+            message_type: 'attendance_request',
             isRead: false
           });
+        }
+
+        if (na.person_id) {
+          const idx = attendanceResponses.findIndex(r =>
+            r.occurrence_id === occurrenceId &&
+            r.person_id === na.person_id &&
+            r.service_role_id === na.service_role_id
+          );
+          const now = new Date().toISOString();
+          if (idx === -1) {
+            attendanceResponses.push({
+              id: crypto.randomUUID(),
+              occurrence_id: occurrenceId,
+              person_id: na.person_id,
+              service_role_id: na.service_role_id,
+              status: 'pending',
+              sent_at: now
+            });
+          } else if (attendanceResponses[idx].status === 'not_sent') {
+            attendanceResponses[idx] = { ...attendanceResponses[idx], status: 'pending', sent_at: now, responded_at: undefined };
+          }
         }
       }
     });
@@ -225,6 +252,7 @@ const App: React.FC = () => {
       ],
       changeLogs: [...(state.changeLogs || []), ...logs],
       noticeMessages: [...notices, ...state.noticeMessages],
+      attendanceResponses,
       eventOccurrences: state.eventOccurrences.map(o => o.id === occurrenceId ? { ...o, last_synced_at: new Date().toISOString() } : o)
     };
   }, []);
