@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AppState, Group, GroupCategory, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
 import { saveImageLibraryEntry, removeImageLibraryEntry } from '../db';
-import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby } from 'lucide-react';
+import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby, Filter, LayoutGrid, Table } from 'lucide-react';
 
 interface Props {
   db: AppState;
@@ -16,9 +16,21 @@ interface Props {
 }
 
 const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLeaderGroups = [], initialViewGroupId, initialPersonId, onViewPerson }) => {
-  const [activeTab, setActiveTab] = useState<'persons' | 'families' | 'barnekirke' | 'fellowship' | 'service' | 'leadership' | 'roles'>('persons');
+  const [activeTab, setActiveTab] = useState<'persons' | 'groups' | 'roles'>('persons');
+  const [selectedGroupTags, setSelectedGroupTags] = useState<Set<string>>(new Set(['Alle']));
+  const [groupViewMode, setGroupViewMode] = useState<'tiles' | 'table'>('tiles');
+  const [customGroupTags, setCustomGroupTags] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('eventmaster.customGroupTags');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isAddingCustomTag, setIsAddingCustomTag] = useState(false);
+  const [newCustomTag, setNewCustomTag] = useState('');
+  const [viewingFamilyFromPerson, setViewingFamilyFromPerson] = useState<UUID | null>(null);
   const isScopedLeader = !isAdmin && userLeaderGroups.length > 0;
-  const scopedTabs: Array<'barnekirke' | 'fellowship' | 'service' | 'leadership'> = ['barnekirke', 'fellowship', 'service', 'leadership'];
   const canManageGroup = useCallback((groupId?: UUID | null) => {
     if (!groupId) return false;
     return isAdmin || userLeaderGroups.includes(groupId);
@@ -64,7 +76,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
 
   // Form States
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupCategory, setNewGroupCategory] = useState<GroupCategory>(GroupCategory.BARNKIRKE);
+  const [newGroupCategory, setNewGroupCategory] = useState<GroupCategory | ''>('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupLink, setNewGroupLink] = useState('');
   const [newGroupLeaderId, setNewGroupLeaderId] = useState<UUID | null>(null);
@@ -88,10 +100,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [memberSearch, setMemberSearch] = useState('');
   const [personSearch, setPersonSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<Set<'Administrator' | 'Gruppeleder' | 'Nestleder' | 'Medlem'>>(new Set());
-  const [selectedBirthYears, setSelectedBirthYears] = useState<Set<number>>(new Set());
-  const [isAccessLevelDropdownOpen, setIsAccessLevelDropdownOpen] = useState(false);
-  const [isBirthYearDropdownOpen, setIsBirthYearDropdownOpen] = useState(false);
+  // Removed top-level filters; using column filters instead
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'birthDate' | 'groups' | 'address' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
@@ -103,6 +112,94 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     phone: true,
     address: false
   });
+  const [openColumnFilter, setOpenColumnFilter] = useState<'birthDate' | 'role' | 'groups' | null>(null);
+  const [columnBirthYears, setColumnBirthYears] = useState<Set<number>>(new Set());
+  const [columnRoles, setColumnRoles] = useState<Set<string>>(new Set());
+  const [columnGroups, setColumnGroups] = useState<Set<string>>(new Set());
+
+  // Helper: Get standard tag from category
+  const getCategoryTag = (category: GroupCategory): string => {
+    switch (category) {
+      case GroupCategory.BARNKIRKE: return 'Barnekirke';
+      case GroupCategory.FELLOWSHIP: return 'Husgrupper';
+      case GroupCategory.SERVICE: return 'Teams';
+      case GroupCategory.STRATEGY: return 'Ledelse';
+      default: return '';
+    }
+  };
+
+  const getCategoryFromTag = (tag: string): GroupCategory | null => {
+    switch (tag) {
+      case 'Barnekirke': return GroupCategory.BARNKIRKE;
+      case 'Husgrupper': return GroupCategory.FELLOWSHIP;
+      case 'Teams': return GroupCategory.SERVICE;
+      case 'Ledelse': return GroupCategory.STRATEGY;
+      default: return null;
+    }
+  };
+
+  // Helper: Get all tags for a group (standard + custom)
+  const getGroupTags = (group: Group): string[] => {
+    const standardTag = getCategoryTag(group.category);
+    const customTags = group.tags || [];
+    return [standardTag, ...customTags].filter(Boolean);
+  };
+
+  // Get all unique tags across all groups
+  const allGroupTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    db.groups.forEach(g => {
+      getGroupTags(g).forEach(tag => tagSet.add(tag));
+    });
+    customGroupTags.forEach(tag => tagSet.add(tag));
+    return Array.from(tagSet).sort();
+  }, [db.groups, customGroupTags]);
+
+  // Get tag counts
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = { 'Alle': db.groups.length };
+    db.groups.forEach(g => {
+      getGroupTags(g).forEach(tag => {
+        counts[tag] = (counts[tag] || 0) + 1;
+      });
+    });
+    customGroupTags.forEach(tag => {
+      if (counts[tag] === undefined) counts[tag] = 0;
+    });
+    return counts;
+  }, [db.groups, customGroupTags]);
+
+  const getDefaultNewGroupCategory = () => {
+    const selectedTags = Array.from(selectedGroupTags).filter(tag => tag !== 'Alle');
+    if (selectedTags.length !== 1) return '';
+    return getCategoryFromTag(selectedTags[0]) || '';
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eventmaster.customGroupTags', JSON.stringify(customGroupTags));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [customGroupTags]);
+
+  const handleAddCustomTag = () => {
+    const trimmed = newCustomTag.trim();
+    if (!trimmed) return;
+    const reserved = ['Alle', 'Barnekirke', 'Husgrupper', 'Teams', 'Ledelse'];
+    if (reserved.includes(trimmed)) {
+      alert('Denne kategorien finnes allerede som standard.');
+      return;
+    }
+    if (customGroupTags.includes(trimmed)) {
+      alert('Denne kategorien finnes allerede.');
+      return;
+    }
+    setCustomGroupTags(prev => [...prev, trimmed]);
+    setSelectedGroupTags(new Set([trimmed]));
+    setNewCustomTag('');
+    setIsAddingCustomTag(false);
+  };
 
   const filteredGroups = useMemo(() => {
     let groups = db.groups;
@@ -111,13 +208,25 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     if (!isAdmin && userLeaderGroups.length > 0) {
       groups = groups.filter(g => userLeaderGroups.includes(g.id));
     }
+
+    // Filter by search
+    if (memberSearch) {
+      groups = groups.filter(g => 
+        g.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
+        g.description?.toLowerCase().includes(memberSearch.toLowerCase())
+      );
+    }
     
-    if (activeTab === 'barnekirke') return groups.filter(g => g.category === GroupCategory.BARNKIRKE);
-    if (activeTab === 'service') return groups.filter(g => g.category === GroupCategory.SERVICE);
-    if (activeTab === 'fellowship') return groups.filter(g => g.category === GroupCategory.FELLOWSHIP);
-    if (activeTab === 'leadership') return groups.filter(g => g.category === GroupCategory.STRATEGY);
-    return [];
-  }, [db.groups, activeTab, isAdmin, userLeaderGroups]);
+    // Filter by selected tags (if not "Alle")
+    if (!selectedGroupTags.has('Alle')) {
+      groups = groups.filter(g => {
+        const groupTags = getGroupTags(g);
+        return Array.from(selectedGroupTags).some(selectedTag => groupTags.includes(selectedTag));
+      });
+    }
+    
+    return groups.sort((a, b) => a.name.localeCompare(b.name));
+  }, [db.groups, memberSearch, selectedGroupTags, isAdmin, userLeaderGroups]);
   const managedGroup = db.groups.find(g => g.id === manageGroupId);
   const viewedGroup = db.groups.find(g => g.id === viewingGroupId);
   const viewedRole = db.serviceRoles.find(r => r.id === viewingRoleId);
@@ -127,13 +236,15 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     if (!initialViewGroupId) return;
     setViewingGroupId(initialViewGroupId);
     const group = db.groups.find(g => g.id === initialViewGroupId);
-    if (group && isScopedLeader) {
-      if (group.category === GroupCategory.BARNKIRKE) setActiveTab('barnekirke');
-      if (group.category === GroupCategory.FELLOWSHIP) setActiveTab('fellowship');
-      if (group.category === GroupCategory.SERVICE) setActiveTab('service');
-      if (group.category === GroupCategory.STRATEGY) setActiveTab('leadership');
+    if (group) {
+      setActiveTab('groups');
+      // Pre-select the tag for this group's category
+      const categoryTag = getCategoryTag(group.category);
+      if (categoryTag) {
+        setSelectedGroupTags(new Set([categoryTag]));
+      }
     }
-  }, [initialViewGroupId, db.groups, isScopedLeader]);
+  }, [initialViewGroupId, db.groups]);
 
   // Nullstill selectedPersonId ved mount hvis initialPersonId ikke er satt
   useEffect(() => {
@@ -156,10 +267,11 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
 
   useEffect(() => {
     if (!isScopedLeader) return;
-    if (!scopedTabs.includes(activeTab as any)) {
-      setActiveTab(scopedTabs[0]);
+    // Scoped leaders should default to groups tab
+    if (activeTab !== 'groups') {
+      setActiveTab('groups');
     }
-  }, [activeTab, isScopedLeader, scopedTabs]);
+  }, [activeTab, isScopedLeader]);
 
   // Reset form state når "Legg til medlem"-modalen åpnes
   useEffect(() => {
@@ -533,6 +645,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
+    if (!newGroupCategory) {
+      alert('Velg kategori/tag for gruppen før du lagrer.');
+      return;
+    }
     
     const newGroupId = crypto.randomUUID();
     const gatheringPattern: GatheringPattern | undefined = newGroupFrequency > 0 ? {
@@ -544,13 +660,18 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       time: newGroupStartTime || undefined
     } : undefined;
     
+    const selectedTags = Array.from(selectedGroupTags).filter(tag => tag !== 'Alle');
+    const categoryTag = getCategoryTag(newGroupCategory as GroupCategory);
+    const customTags = selectedTags.filter(tag => tag !== categoryTag);
+
     const newGroup: Group = {
       id: newGroupId,
       name: newGroupName.trim(),
-      category: newGroupCategory,
+      category: newGroupCategory as GroupCategory,
       description: newGroupDescription.trim() || undefined,
       link: newGroupLink.trim() || undefined,
-      gathering_pattern: gatheringPattern
+      gathering_pattern: gatheringPattern,
+      tags: customTags.length > 0 ? customTags : undefined
     };
     
     setDb(prev => {
@@ -617,7 +738,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     setNewGroupDayOfWeek(0);
     setNewGroupFrequency(1);
     setNewGroupStartDate(new Date().toISOString().split('T')[0]);
-    setNewGroupCategory(GroupCategory.BARNKIRKE); // Reset til standard kategori
+    setNewGroupCategory('');
     setIsCreateModalOpen(false);
   };
 
@@ -1292,6 +1413,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     });
   }, [db.persons, getPersonRole]);
 
+  const availableGroups = useMemo(() => {
+    return [...db.groups].sort((a, b) => a.name.localeCompare(b.name));
+  }, [db.groups]);
+
   const filteredPersons = useMemo(() => {
     // Scoped Access: Hvis brukeren ikke er admin, vis kun medlemmer fra gruppene de leder
     let accessiblePersonIds: Set<UUID> | null = null;
@@ -1314,25 +1439,31 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                            (p.email && p.email.toLowerCase().includes(personSearch.toLowerCase())) ||
                            (p.phone && p.phone.includes(personSearch));
       
-      // Filtrer på rolle (multi-select) - bruker faktiske roller fra tabellen
-      let matchesRoleFilter = true;
-      if (selectedRoles.size > 0) {
-        const personRole = getPersonRole(p);
-        matchesRoleFilter = selectedRoles.has(personRole);
-      }
-      
-      // Filtrer på årskull
-      let matchesBirthYear = true;
-      if (selectedBirthYears.size > 0) {
+      // Kolonnefilter: Født (årstall)
+      let matchesColumnBirthYear = true;
+      if (columnBirthYears.size > 0) {
         if (p.birth_date) {
           const birthYear = new Date(p.birth_date).getFullYear();
-          matchesBirthYear = selectedBirthYears.has(birthYear);
+          matchesColumnBirthYear = columnBirthYears.has(birthYear);
         } else {
-          matchesBirthYear = false; // Hvis ingen fødselsdato og årskull er valgt, ekskluder
+          matchesColumnBirthYear = false;
         }
       }
+
+      // Kolonnefilter: Rolle
+      let matchesColumnRole = true;
+      if (columnRoles.size > 0) {
+        matchesColumnRole = columnRoles.has(getPersonRole(p));
+      }
+
+      // Kolonnefilter: Grupper
+      let matchesColumnGroup = true;
+      if (columnGroups.size > 0) {
+        const personGroupIds = db.groupMembers.filter(gm => gm.person_id === p.id).map(gm => gm.group_id);
+        matchesColumnGroup = personGroupIds.some(id => columnGroups.has(id));
+      }
       
-      return matchesSearch && matchesRoleFilter && matchesBirthYear;
+      return matchesSearch && matchesColumnBirthYear && matchesColumnRole && matchesColumnGroup;
     });
 
     // Sortering
@@ -1392,7 +1523,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     }
     
     return filtered;
-  }, [db.persons, db.groupMembers, personSearch, selectedRoles, selectedBirthYears, sortColumn, sortDirection, getPersonRole]);
+  }, [db.persons, db.groupMembers, personSearch, columnBirthYears, columnRoles, columnGroups, sortColumn, sortDirection, getPersonRole]);
   
   const filteredRoles = db.serviceRoles.filter(sr => sr.name.toLowerCase().includes(roleSearch.toLowerCase())).sort((a,b) => a.name.localeCompare(b.name));
 
@@ -1402,55 +1533,49 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">{isScopedLeader ? 'Mine grupper' : 'Folk'}</h2>
-          <p className="text-sm text-slate-500">{isScopedLeader ? 'Oversikt over grupper du leder eller er nestleder for.' : 'Administrasjon av personer, familier, grupper og roller.'}</p>
+          <p className="text-sm text-slate-500">{isScopedLeader ? 'Oversikt over grupper du leder eller er nestleder for.' : 'Administrasjon av personer, grupper og roller.'}</p>
         </div>
         <div className="inline-flex bg-slate-200/60 p-1 rounded-theme flex-wrap gap-1">
           {(isScopedLeader
-            ? (['barnekirke', 'fellowship', 'service', 'leadership'] as const)
-            : (['persons', 'families', 'barnekirke', 'fellowship', 'service', 'leadership', 'roles'] as const)
+            ? (['groups'] as const)
+            : (['persons', 'groups', 'roles'] as const)
           ).map(tab => (
             <button 
               key={tab}
               onClick={() => { setActiveTab(tab); setSelectedPersonId(null); }} 
               className={`px-4 py-1.5 rounded-theme text-xs font-semibold transition-all ${activeTab === tab && !selectedPersonId ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
             >
-              {tab === 'persons' ? 'Personer' : tab === 'families' ? 'Familier' : tab === 'barnekirke' ? 'Barnekirke' : tab === 'fellowship' ? 'Husgrupper' : tab === 'service' ? 'Team' : tab === 'leadership' ? 'Ledelse' : 'Roller'}
+              {tab === 'persons' ? 'Personer' : tab === 'groups' ? 'Grupper' : 'Roller'}
             </button>
           ))}
         </div>
       </div>
 
-      {activeTab !== 'persons' && (
+      {activeTab !== 'persons' && activeTab !== 'roles' && (
         <div className="flex justify-between items-center bg-white p-3 rounded-theme border border-slate-200 shadow-sm">
           <div className="flex-1 max-w-sm relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
-              placeholder={activeTab === 'persons' ? "Søk etter person..." : activeTab === 'families' ? "Søk etter familie..." : "Søk i grupper..."}
-              value={activeTab === 'persons' ? personSearch : activeTab === 'families' ? memberPersonSearch : memberSearch} 
-              onChange={e => activeTab === 'persons' ? setPersonSearch(e.target.value) : activeTab === 'families' ? setMemberPersonSearch(e.target.value) : setMemberSearch(e.target.value)} 
+              placeholder="Søk i grupper..."
+              value={memberSearch} 
+              onChange={e => setMemberSearch(e.target.value)} 
               className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-1 focus:ring-primary text-sm" 
             />
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2">
-              {activeTab === 'persons' && <button onClick={() => setIsCreatePersonModalOpen(true)} className="px-4 py-1.5 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 transition-all"><Plus size={14} /> Ny Person</button>}
-              {activeTab === 'families' && <button onClick={() => setIsCreateFamilyModalOpen(true)} className="px-4 py-1.5 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 transition-all"><Plus size={14} /> Ny Familie</button>}
-              {(activeTab === 'barnekirke' || activeTab === 'fellowship' || activeTab === 'service' || activeTab === 'leadership') && <button onClick={() => {
-                setNewGroupCategory(
-                  activeTab === 'barnekirke' ? GroupCategory.BARNKIRKE :
-                  activeTab === 'fellowship' ? GroupCategory.FELLOWSHIP :
-                  activeTab === 'service' ? GroupCategory.SERVICE :
-                  GroupCategory.STRATEGY
-                );
+              <button onClick={() => {
+                setNewGroupCategory(getDefaultNewGroupCategory());
                 setIsCreateModalOpen(true);
-              }} className="px-4 py-1.5 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 transition-all"><Plus size={14} /> Ny Gruppe</button>}
+              }} className="px-4 py-1.5 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover flex items-center gap-2 transition-all"><Plus size={14} /> Ny Gruppe</button>
             </div>
           )}
         </div>
       )}
 
-      {selectedPersonId && selectedPerson ? (
+      {selectedPersonId && selectedPerson && (
+        <>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setSelectedPersonId(null)}>
           <div className="bg-white rounded-theme shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-2 duration-300" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
@@ -1459,6 +1584,25 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 <h3 className="text-lg font-bold text-slate-900">Medlemskort: {selectedPerson.name}</h3>
               </div>
               <div className="flex items-center gap-2">
+                {(() => {
+                  const personFamilyMemberships = (db.familyMembers || []).filter(
+                    fm => fm.person_id === selectedPersonId
+                  );
+                  const primaryMembership = personFamilyMemberships.find(fm => fm.isPrimaryResidence) || personFamilyMemberships[0];
+                  if (!primaryMembership) return null;
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingFamilyFromPerson(primaryMembership.family_id);
+                      }}
+                      className="p-2 hover:bg-slate-200 rounded-theme transition-colors"
+                      title="Vis familiekort"
+                    >
+                      <Home size={18} className="text-slate-600" />
+                    </button>
+                  );
+                })()}
                 {isAdmin && (
                   <button 
                     onClick={(e) => {
@@ -1554,6 +1698,52 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       </div>
                     )}
                   </div>
+
+                  {/* Husstand Widget */}
+                  {(() => {
+                    const personFamilyMemberships = db.familyMembers.filter(fm => fm.person_id === selectedPersonId);
+                    if (personFamilyMemberships.length === 0) return null;
+
+                    const primaryMembership = personFamilyMemberships.find(fm => fm.isPrimaryResidence) || personFamilyMemberships[0];
+                    const family = db.families.find(f => f.id === primaryMembership.family_id);
+                    const familyMembers = db.familyMembers
+                      .filter(fm => fm.family_id === primaryMembership.family_id && fm.person_id !== selectedPersonId)
+                      .map(fm => db.persons.find(p => p.id === fm.person_id))
+                      .filter(Boolean) as Person[];
+
+                    if (familyMembers.length === 0) return null;
+
+                    return (
+                      <div className="mt-6 pt-6 border-t border-slate-100">
+                        <h5 className="text-[11px] font-bold text-slate-400 uppercase mb-3">Husstand</h5>
+                        <button
+                          onClick={() => setViewingFamilyFromPerson(primaryMembership.family_id)}
+                          className="w-full p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-theme transition-all group text-left"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold text-slate-700">{family?.name || 'Familie'}</span>
+                            <ChevronRight size={14} className="text-slate-400 group-hover:text-primary transition-colors" />
+                          </div>
+                          <div className="flex -space-x-2">
+                            {familyMembers.slice(0, 5).map(person => (
+                              <img
+                                key={person.id}
+                                src={getAvatarUrl(person)}
+                                alt={person.name}
+                                title={person.name}
+                                className="w-8 h-8 rounded-full border-2 border-white object-cover"
+                              />
+                            ))}
+                            {familyMembers.length > 5 && (
+                              <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-300 flex items-center justify-center">
+                                <span className="text-[10px] font-bold text-slate-600">+{familyMembers.length - 5}</span>
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </section>
              </div>
 
@@ -1649,14 +1839,202 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                      </div>
                    )}
                  </div>
-               </section>
-             </div>
-           </div>
-           </div>
+              </section>
             </div>
           </div>
-        </div>
-      ) : activeTab === 'roles' ? (
+          </div>
+           </div>
+         </div>
+       </div>
+      {/* Family Modal Overlay (from Person Card) */}
+      {viewingFamilyFromPerson && (() => {
+          const viewingFamily = db.families.find(f => f.id === viewingFamilyFromPerson);
+          if (!viewingFamily) return null;
+
+          const familyMembers = (db.familyMembers || []).filter(fm => fm.family_id === viewingFamilyFromPerson);
+          const parents = familyMembers
+            .filter(fm => fm.role === FamilyRole.PARENT || fm.role === FamilyRole.PARTNER)
+            .map(fm => ({
+              member: fm,
+              person: db.persons.find(p => p.id === fm.person_id)
+            }))
+            .filter(({ person }) => person !== undefined) as Array<{ member: FamilyMember; person: Person }>;
+          
+          const children = familyMembers
+            .filter(fm => fm.role === FamilyRole.CHILD)
+            .map(fm => ({
+              member: fm,
+              person: db.persons.find(p => p.id === fm.person_id)
+            }))
+            .filter(({ person }) => person !== undefined) as Array<{ member: FamilyMember; person: Person }>;
+
+          const familyAddress = viewingFamily.streetAddress || viewingFamily.city ? 
+            `${viewingFamily.streetAddress || ''}${viewingFamily.streetAddress && viewingFamily.postalCode ? ', ' : ''}${viewingFamily.postalCode || ''} ${viewingFamily.city || ''}`.trim() : 
+            null;
+
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4" onClick={() => setViewingFamilyFromPerson(null)}>
+              <div className="bg-white rounded-theme shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    {parents.length > 0 ? (
+                      <div className="text-xl font-bold text-slate-900">
+                        {(() => {
+                          const familyLastName = parents[0] ? splitName(parents[0].person.name).lastName : '';
+                          return (
+                            <>
+                              {parents.map(({ person }, index) => {
+                                const { firstName } = splitName(person.name);
+                                return (
+                                  <React.Fragment key={person.id}>
+                                    <span className="text-slate-900">
+                                      {firstName}
+                                    </span>
+                                    {index < parents.length - 1 ? ' og ' : ''}
+                                  </React.Fragment>
+                                );
+                              })}
+                              {familyLastName && (
+                                <span className="text-slate-900"> {familyLastName}</span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <h2 className="text-xl font-bold text-slate-900">{viewingFamily.name || 'Familie uten navn'}</h2>
+                    )}
+                    {familyAddress && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <MapPin size={14} className="text-slate-400" />
+                        <p className="text-sm text-slate-600">{familyAddress}</p>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => setViewingFamilyFromPerson(null)} className="p-2 hover:bg-slate-200 rounded-theme transition-colors">
+                    <X size={20} className="text-slate-600" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {/* Foreldre/Ektefeller */}
+                  {parents.length > 0 && (
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <Users size={16} className="text-primary" /> Foreldre/Ektefeller
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {parents.map(({ member, person }) => (
+                          <div 
+                            key={member.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingFamilyFromPerson(null);
+                              setSelectedPersonId(person.id);
+                            }}
+                            className="bg-white border border-slate-200 rounded-theme p-4 hover:border-primary-light hover:shadow-md transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <img 
+                                  src={getAvatarUrl(person)}
+                                  alt={`${person.name} avatar`}
+                                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                                  className="border border-slate-200"
+                                />
+                                {member.role === FamilyRole.PARENT ? (
+                                  <User size={18} className="text-primary-light0" />
+                                ) : (
+                                  <Heart size={18} className="text-rose-500" />
+                                )}
+                                <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">
+                                  {person.name}
+                                </h4>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                {member.role === FamilyRole.PARENT ? 'Forelder' : 'Partner'}
+                              </span>
+                            </div>
+                            {person.phone && (
+                              <div className="flex items-center gap-2 text-xs text-slate-600 mb-1">
+                                <Phone size={12} className="text-slate-400" />
+                                {person.phone}
+                              </div>
+                            )}
+                            {person.email && (
+                              <div className="flex items-center gap-2 text-xs text-slate-600">
+                                <Mail size={12} className="text-slate-400" />
+                                {person.email}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Barn */}
+                  {children.length > 0 && (
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <Baby size={16} className="text-primary-light0" /> Barn
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {children.map(({ member, person }) => {
+                          const age = calculateAge(person.birth_date);
+                          const hasOtherFamilies = (db.familyMembers || []).filter(
+                            fm => fm.person_id === person.id && fm.family_id !== viewingFamilyFromPerson
+                          ).length > 0;
+                          
+                          return (
+                            <div 
+                              key={member.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingFamilyFromPerson(null);
+                                setSelectedPersonId(person.id);
+                              }}
+                              className="bg-white border border-slate-200 rounded-theme p-4 hover:border-primary-light hover:shadow-md transition-all cursor-pointer group"
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <img 
+                                    src={getAvatarUrl(person)}
+                                    alt={`${person.name} avatar`}
+                                    style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                                    className="border border-slate-200"
+                                  />
+                                  <Baby size={16} className="text-primary-light" />
+                                  <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">
+                                    {person.name}
+                                  </h4>
+                                </div>
+                              </div>
+                              {age && (
+                                <p className="text-xs text-slate-500 mb-2">{age}</p>
+                              )}
+                              {hasOtherFamilies && (
+                                <div className="flex items-center gap-1 text-xs text-amber-600 mb-2">
+                                  <Home size={12} />
+                                  {member.isPrimaryResidence ? 'Hovedadresse' : 'Delt bosted'}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        </>
+      )}
+      {!selectedPersonId && activeTab === 'roles' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-white p-3 rounded-theme border border-slate-200 shadow-sm">
             <div className="relative w-full max-w-sm">
@@ -1694,7 +2072,8 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
             ))}
           </div>
         </div>
-      ) : activeTab === 'persons' ? (
+      )}
+      {!selectedPersonId && activeTab === 'persons' && (
         <div className="bg-white rounded-theme border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100 space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1702,194 +2081,35 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input type="text" placeholder="Søk person..." value={personSearch} onChange={e => setPersonSearch(e.target.value)} className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-theme text-sm outline-none focus:ring-1 focus:ring-primary" />
               </div>
-              {isAdmin && (
-                <button 
-                  onClick={() => setIsCreatePersonModalOpen(true)} 
-                  className="w-full md:w-auto px-4 py-2 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus size={14} /> 
-                  Ny Person
-                </button>
-              )}
-            </div>
-            
-            {/* Filter og Opprett gruppe fra utvalg */}
-            <div className="flex flex-wrap gap-4 items-end justify-between">
-              <div className="flex flex-wrap gap-4 items-end flex-1">
-              {/* Tilgangskontroll-filter */}
-              <div className="relative flex-1 min-w-[200px]">
-                <label className="text-xs font-semibold text-slate-600 mb-2 block">Tilgangskontroll:</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsAccessLevelDropdownOpen(!isAccessLevelDropdownOpen)}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-theme text-xs text-left focus:ring-1 focus:ring-primary-light0 outline-none flex items-center justify-between hover:bg-slate-50 transition-colors"
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsCreatePersonModalOpen(true)} 
+                    className="w-full md:w-auto px-4 py-2 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover transition-all flex items-center justify-center gap-2"
                   >
-                    <span className="text-slate-700">
-                      {selectedRoles.size === 0 
-                        ? 'Velg rolle...' 
-                        : selectedRoles.size === 1
-                        ? Array.from(selectedRoles)[0]
-                        : `${selectedRoles.size} roller valgt`}
-                    </span>
-                    <ChevronDown 
-                      size={14} 
-                      className={`text-slate-400 transition-transform ${isAccessLevelDropdownOpen ? 'rotate-180' : ''}`} 
-                    />
+                    <Plus size={14} /> 
+                    Ny Person
                   </button>
-                  {isAccessLevelDropdownOpen && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setIsAccessLevelDropdownOpen(false)}
-                      ></div>
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-theme shadow-lg max-h-60 overflow-y-auto">
-                        <div className="p-2 space-y-1">
-                          {availableRoles.map(role => {
-                            const isSelected = selectedRoles.has(role);
-                            return (
-                              <label
-                                key={role}
-                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {
-                                    const newSet = new Set(selectedRoles);
-                                    if (isSelected) {
-                                      newSet.delete(role);
-                                    } else {
-                                      newSet.add(role);
-                                    }
-                                    setSelectedRoles(newSet);
-                                  }}
-                                  className="w-4 h-4 text-primary border-slate-300 rounded-theme focus:ring-primary"
-                                />
-                                <span className="text-xs text-slate-700">{role}</span>
-                              </label>
-                            );
-                          })}
-                          {selectedRoles.size > 0 && (
-                            <div className="border-t border-slate-200 pt-1 mt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedRoles(new Set());
-                                  setIsAccessLevelDropdownOpen(false);
-                                }}
-                                className="w-full px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded text-left"
-                              >
-                                Nullstill alle
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              {/* Årskull-filter */}
-              {availableBirthYears.length > 0 && (
-                <div className="relative flex-1 min-w-[200px]">
-                  <label className="text-xs font-semibold text-slate-600 mb-2 block">Årskull:</label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsBirthYearDropdownOpen(!isBirthYearDropdownOpen)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-theme text-xs text-left focus:ring-1 focus:ring-primary-light0 outline-none flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                      <span className="text-slate-700">
-                        {selectedBirthYears.size === 0 
-                          ? 'Velg årskull...' 
-                          : selectedBirthYears.size === 1
-                          ? `${Array.from(selectedBirthYears)[0]}`
-                          : `${selectedBirthYears.size} årskull valgt`}
-                      </span>
-                      <ChevronDown 
-                        size={14} 
-                        className={`text-slate-400 transition-transform ${isBirthYearDropdownOpen ? 'rotate-180' : ''}`} 
-                      />
-                    </button>
-                    {isBirthYearDropdownOpen && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-10" 
-                          onClick={() => setIsBirthYearDropdownOpen(false)}
-                        ></div>
-                        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-theme shadow-lg max-h-60 overflow-y-auto">
-                          <div className="p-2 space-y-1">
-                            {availableBirthYears.map(year => {
-                              const isSelected = selectedBirthYears.has(year);
-                              return (
-                                <label
-                                  key={year}
-                                  className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => {
-                                      const newSet = new Set(selectedBirthYears);
-                                      if (isSelected) {
-                                        newSet.delete(year);
-                                      } else {
-                                        newSet.add(year);
-                                      }
-                                      setSelectedBirthYears(newSet);
-                                    }}
-                                    className="w-4 h-4 text-primary border-slate-300 rounded-theme focus:ring-primary"
-                                  />
-                                  <span className="text-xs text-slate-700">{year}</span>
-                                </label>
-                              );
-                            })}
-                            {selectedBirthYears.size > 0 && (
-                              <div className="border-t border-slate-200 pt-1 mt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedBirthYears(new Set());
-                                    setIsBirthYearDropdownOpen(false);
-                                  }}
-                                  className="w-full px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded text-left"
-                                >
-                                  Nullstill alle
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-              </div>
-              
-              {/* Opprett gruppe fra utvalg-knapp */}
-              <div className="flex items-end gap-2">
+                )}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsColumnPickerOpen(prev => !prev)}
-                    className="px-4 py-1.5 border border-slate-200 bg-white rounded-theme text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                    className="w-full md:w-auto px-4 py-2 border border-slate-200 bg-white rounded-theme text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
                   >
                     Vis/skjul kolonner
                   </button>
                   {isColumnPickerOpen && (
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setIsColumnPickerOpen(false)} />
-                      <div className="absolute right-0 z-20 mt-2 w-56 rounded-theme border border-slate-200 bg-white shadow-lg p-3 space-y-2">
+                      <div className="fixed inset-0 z-40" onClick={() => setIsColumnPickerOpen(false)} />
+                      <div className="absolute right-0 z-50 mt-2 w-56 rounded-theme border border-slate-200 bg-white shadow-lg p-3 space-y-2">
                         <label className="flex items-center gap-2 text-xs text-slate-600">
                           <input type="checkbox" checked={visibleColumns.birthDate} onChange={() => setVisibleColumns(prev => ({ ...prev, birthDate: !prev.birthDate }))} />
                           Fødselsdato
                         </label>
                         <label className="flex items-center gap-2 text-xs text-slate-600">
                           <input type="checkbox" checked={visibleColumns.role} onChange={() => setVisibleColumns(prev => ({ ...prev, role: !prev.role }))} />
-                          Rolle
+                          Tilgangskontroll
                         </label>
                         <label className="flex items-center gap-2 text-xs text-slate-600">
                           <input type="checkbox" checked={visibleColumns.groups} onChange={() => setVisibleColumns(prev => ({ ...prev, groups: !prev.groups }))} />
@@ -1911,21 +2131,22 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     </>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Hent alle personer som er synlige i tabellen (filteredPersons)
-                    const selectedPersonIds = filteredPersons.map(p => p.id);
-                    setNewGroupMemberIds(selectedPersonIds);
-                    setNewGroupCategory(GroupCategory.BARNKIRKE); // Sett Barnekirke som standard
-                    setIsCreateModalOpen(true);
-                  }}
-                  className="px-4 py-1.5 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover transition-all flex items-center gap-2"
-                  title={`Opprett gruppe med ${filteredPersons.length} personer fra utvalget`}
-                >
-                  <Plus size={14} />
-                  Opprett gruppe fra utvalg ({filteredPersons.length})
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedPersonIds = filteredPersons.map(p => p.id);
+                      setNewGroupMemberIds(selectedPersonIds);
+                    setNewGroupCategory(getDefaultNewGroupCategory());
+                      setIsCreateModalOpen(true);
+                    }}
+                    className="w-full md:w-auto px-4 py-2 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover transition-all flex items-center justify-center gap-2"
+                    title={`Opprett gruppe med ${filteredPersons.length} personer fra utvalget`}
+                  >
+                    <Plus size={14} />
+                    Opprett gruppe fra utvalg ({filteredPersons.length})
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1953,7 +2174,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                   </th>
                   {visibleColumns.birthDate && (
                     <th 
-                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none relative"
                       onClick={() => {
                         if (sortColumn === 'birthDate') {
                           setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1963,17 +2184,69 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         }
                       }}
                     >
-                      <div className="flex items-center gap-1.5">
-                        Født
-                        {sortColumn === 'birthDate' && (
-                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          Født
+                          {sortColumn === 'birthDate' && (
+                            <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenColumnFilter(prev => prev === 'birthDate' ? null : 'birthDate');
+                          }}
+                          className={`${columnBirthYears.size > 0 ? 'text-primary' : 'text-slate-400'} hover:text-primary`}
+                          title="Filter"
+                        >
+                          <Filter size={12} />
+                        </button>
                       </div>
+                      {openColumnFilter === 'birthDate' && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setOpenColumnFilter(null)} />
+                          <div
+                            className="absolute z-30 mt-2 w-48 rounded-theme border border-slate-200 bg-white shadow-lg p-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                              <span>Årstall</span>
+                              <button
+                                type="button"
+                                onClick={() => setColumnBirthYears(new Set())}
+                                className="text-slate-500 hover:text-primary"
+                              >
+                                Nullstill
+                              </button>
+                            </div>
+                            <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+                              {availableBirthYears.map(year => (
+                                <label key={year} className="flex items-center gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={columnBirthYears.has(year)}
+                                    onChange={() => {
+                                      setColumnBirthYears(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(year)) next.delete(year);
+                                        else next.add(year);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                  {year}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </th>
                   )}
                   {visibleColumns.role && (
                     <th 
-                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none relative"
                       onClick={() => {
                         if (sortColumn === 'role') {
                           setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1983,17 +2256,69 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         }
                       }}
                     >
-                      <div className="flex items-center gap-1.5">
-                        Rolle
-                        {sortColumn === 'role' && (
-                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          Tilgangskontroll
+                          {sortColumn === 'role' && (
+                            <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenColumnFilter(prev => prev === 'role' ? null : 'role');
+                          }}
+                          className={`${columnRoles.size > 0 ? 'text-primary' : 'text-slate-400'} hover:text-primary`}
+                          title="Filter"
+                        >
+                          <Filter size={12} />
+                        </button>
                       </div>
+                      {openColumnFilter === 'role' && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setOpenColumnFilter(null)} />
+                          <div
+                            className="absolute z-30 mt-2 w-48 rounded-theme border border-slate-200 bg-white shadow-lg p-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                              <span>Rolle</span>
+                              <button
+                                type="button"
+                                onClick={() => setColumnRoles(new Set())}
+                                className="text-slate-500 hover:text-primary"
+                              >
+                                Nullstill
+                              </button>
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {availableRoles.map(role => (
+                                <label key={role} className="flex items-center gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={columnRoles.has(role)}
+                                    onChange={() => {
+                                      setColumnRoles(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(role)) next.delete(role);
+                                        else next.add(role);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                  {role}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </th>
                   )}
                   {visibleColumns.groups && (
                     <th
-                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none relative"
                       onClick={() => {
                         if (sortColumn === 'groups') {
                           setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -2003,12 +2328,64 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         }
                       }}
                     >
-                      <div className="flex items-center gap-1.5">
-                        Grupper
-                        {sortColumn === 'groups' && (
-                          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          Grupper
+                          {sortColumn === 'groups' && (
+                            <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenColumnFilter(prev => prev === 'groups' ? null : 'groups');
+                          }}
+                          className={`${columnGroups.size > 0 ? 'text-primary' : 'text-slate-400'} hover:text-primary`}
+                          title="Filter"
+                        >
+                          <Filter size={12} />
+                        </button>
                       </div>
+                      {openColumnFilter === 'groups' && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setOpenColumnFilter(null)} />
+                          <div
+                            className="absolute z-30 mt-2 w-56 rounded-theme border border-slate-200 bg-white shadow-lg p-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                              <span>Grupper</span>
+                              <button
+                                type="button"
+                                onClick={() => setColumnGroups(new Set())}
+                                className="text-slate-500 hover:text-primary"
+                              >
+                                Nullstill
+                              </button>
+                            </div>
+                            <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+                              {availableGroups.map(group => (
+                                <label key={group.id} className="flex items-center gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={columnGroups.has(group.id)}
+                                    onChange={() => {
+                                      setColumnGroups(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(group.id)) next.delete(group.id);
+                                        else next.add(group.id);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                  {group.name}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </th>
                   )}
                   {visibleColumns.email && <th className="py-3 px-4">E-post</th>}
@@ -2050,6 +2427,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     .map(gm => db.groups.find(g => g.id === gm.group_id)?.name)
                     .filter(Boolean))) as string[];
                   const groupsLabel = groupNames.length > 0 ? groupNames.join(', ') : '–';
+
+                  const personFamilyMemberships = (db.familyMembers || []).filter(fm => fm.person_id === person.id);
+                  const primaryFamilyMembership = personFamilyMemberships.find(fm => fm.isPrimaryResidence) || personFamilyMemberships[0];
+                  const primaryFamilyId = primaryFamilyMembership?.family_id;
                   
                   let roleLabel = 'Medlem';
                   let roleColorClass = 'bg-slate-100 text-slate-600 border-slate-200';
@@ -2081,6 +2462,18 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                             style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', objectFit: 'cover', display: 'block' }}
                           />
                           {person.name}
+                          {primaryFamilyId && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingFamilyId(primaryFamilyId);
+                              }}
+                              className="ml-2 p-1 rounded-theme bg-slate-100 text-slate-500 hover:text-primary hover:bg-primary-light transition-colors"
+                              title="Vis familiekort"
+                            >
+                              <Home size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                       {visibleColumns.birthDate && (
@@ -2124,133 +2517,290 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
             </table>
           </div>
         </div>
-      ) : activeTab === 'families' ? (
+      )}
+      {!selectedPersonId && activeTab === 'groups' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-3 rounded-theme border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800">Familier</h3>
-            {isAdmin && (
-              <button 
-                onClick={() => setIsCreateFamilyModalOpen(true)}
-                className="w-full md:w-auto px-4 py-2 bg-primary text-white rounded-theme text-xs font-bold hover:bg-primary-hover shadow-sm flex items-center justify-center gap-2 transition-all"
-              >
-                <Plus size={14} /> Ny Familie
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(db.families || []).length > 0 ? (db.families || []).map(family => {
-              const members = (db.familyMembers || []).filter(fm => fm.family_id === family.id);
-              const address = family.streetAddress || family.city ? 
-                `${family.streetAddress || ''}${family.streetAddress && family.postalCode ? ', ' : ''}${family.postalCode || ''} ${family.city || ''}`.trim() : 
-                null;
-              return (
-                <div 
-                  key={family.id}
-                  onClick={() => setViewingFamilyId(family.id)}
-                  className="bg-white rounded-theme p-4 border border-slate-200 shadow-sm hover:border-primary hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <h3 className="text-sm font-bold text-slate-900 mb-2 group-hover:text-primary">{family.name || 'Familie uten navn'}</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{members.length} medlemmer</p>
-                  {address && (
-                    <p className="text-xs text-slate-500 mb-3 truncate">{address}</p>
-                  )}
-                  {isAdmin && (
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation();
-                        setSelectedFamilyForMember(family.id); 
-                        setIsAddMemberModalOpen(true); 
-                      }}
-                      className="w-full mt-2 px-3 py-1.5 bg-primary-light text-primary rounded-theme text-xs font-bold hover:bg-primary-light/80 transition-all flex items-center justify-center gap-2"
+          {/* Tag Pills + View Switcher */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-3 rounded-theme border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {['Alle', ...allGroupTags].map(tag => {
+                const count = tagCounts[tag] || 0;
+                const isSelected = selectedGroupTags.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      if (tag === 'Alle') {
+                        setSelectedGroupTags(new Set(['Alle']));
+                      } else {
+                        const newTags = new Set(selectedGroupTags);
+                        newTags.delete('Alle');
+                        if (isSelected) {
+                          newTags.delete(tag);
+                          if (newTags.size === 0) newTags.add('Alle');
+                        } else {
+                          newTags.add(tag);
+                        }
+                        setSelectedGroupTags(newTags);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      isSelected
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {tag} ({count})
+                  </button>
+                );
+              })}
+              {isAdmin && (
+                <div className="flex items-center">
+                  {isAddingCustomTag ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newCustomTag}
+                        onChange={(e) => setNewCustomTag(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomTag();
+                          }
+                          if (e.key === 'Escape') {
+                            setIsAddingCustomTag(false);
+                            setNewCustomTag('');
+                          }
+                        }}
+                        className="px-2 py-1 text-xs border border-slate-200 rounded-theme outline-none focus:ring-1 focus:ring-primary-light0"
+                        placeholder="Ny kategori"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomTag}
+                        className="px-2 py-1 text-xs font-bold bg-primary text-white rounded-theme hover:bg-primary-hover"
+                      >
+                        Legg til
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingCustomTag(false);
+                          setNewCustomTag('');
+                        }}
+                        className="px-2 py-1 text-xs text-slate-600 hover:text-slate-800"
+                      >
+                        Avbryt
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomTag(true)}
+                      className="ml-1 px-2 py-1.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+                      title="Legg til kategori"
                     >
-                      <Plus size={12} /> Legg til medlem
+                      <Plus size={12} />
                     </button>
                   )}
                 </div>
-              );
-            }) : (
-              <div className="col-span-full bg-white rounded-theme border border-slate-200 shadow-sm p-6">
-                <p className="text-slate-500 text-sm text-center py-8">
-                  Ingen familier registrert ennå. Klikk "Ny Familie" for å opprette en familie.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            {isAdmin && <button 
-              onClick={() => { 
-                const category = activeTab === 'barnekirke' ? GroupCategory.BARNKIRKE :
-                                activeTab === 'service' ? GroupCategory.SERVICE : 
-                                activeTab === 'fellowship' ? GroupCategory.FELLOWSHIP : 
-                                GroupCategory.STRATEGY;
-                setNewGroupCategory(category);
-                setIsCreateModalOpen(true);
-              }} 
-              className="w-full md:w-auto px-4 py-2 bg-primary text-white rounded-theme text-xs font-bold shadow-sm hover:bg-primary-hover transition-all flex items-center justify-center gap-2"
-            ><Plus size={14} /> Ny Gruppe</button>}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredGroups.map(group => {
-              const members = db.groupMembers.filter(gm => gm.group_id === group.id);
-              const leaderMembers = members.filter(m => m.role === GroupRole.LEADER).map(m => db.persons.find(p => p.id === m.person_id)).filter(Boolean) as Person[];
-              const deputyLeaderMembers = members.filter(m => m.role === GroupRole.DEPUTY_LEADER).map(m => db.persons.find(p => p.id === m.person_id)).filter(Boolean) as Person[];
-              return (
-                <button 
-                  key={group.id} 
-                  onClick={() => setViewingGroupId(group.id)}
-                  className="bg-white rounded-theme p-4 border border-slate-200 shadow-sm hover:border-primary hover:shadow-md transition-all group relative flex flex-col h-full text-left"
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {/* View Switcher */}
+              <div className="inline-flex bg-slate-100 rounded-theme p-0.5">
+                <button
+                  onClick={() => setGroupViewMode('tiles')}
+                  className={`p-1.5 rounded-theme transition-all ${
+                    groupViewMode === 'tiles'
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  title="Tiles visning"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3"><div className="p-2 bg-slate-50 border border-slate-100 rounded-theme">{getIcon(group.category)}</div><h3 className="text-sm font-bold text-slate-900">{group.name}</h3></div>
-                    {canManageGroup(group.id) && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => { e.stopPropagation(); setManageGroupId(group.id); }} className="p-1.5 text-slate-300 hover:text-primary rounded-theme transition-all"><Edit2 size={14} /></button>
-                        {isAdmin && (
-                          <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-theme transition-all"><Trash2 size={14} /></button>
-                        )}
+                  <LayoutGrid size={16} />
+                </button>
+                <button
+                  onClick={() => setGroupViewMode('table')}
+                  className={`p-1.5 rounded-theme transition-all ${
+                    groupViewMode === 'table'
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  title="Tabell visning"
+                >
+                  <Table size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Groups Display */}
+          {groupViewMode === 'tiles' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredGroups.length > 0 ? filteredGroups.map(group => {
+                const members = db.groupMembers.filter(gm => gm.group_id === group.id);
+                const leaderMembers = members.filter(m => m.role === GroupRole.LEADER).map(m => db.persons.find(p => p.id === m.person_id)).filter(Boolean) as Person[];
+                const deputyLeaderMembers = members.filter(m => m.role === GroupRole.DEPUTY_LEADER).map(m => db.persons.find(p => p.id === m.person_id)).filter(Boolean) as Person[];
+                const groupTags = getGroupTags(group);
+                
+                return (
+                  <button 
+                    key={group.id} 
+                    onClick={() => setViewingGroupId(group.id)}
+                    className="bg-white rounded-theme p-4 border border-slate-200 shadow-sm hover:border-primary hover:shadow-md transition-all group relative flex flex-col h-full text-left"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-slate-50 border border-slate-100 rounded-theme">{getIcon(group.category)}</div>
+                        <h3 className="text-sm font-bold text-slate-900">{group.name}</h3>
                       </div>
-                    )}
-                  </div>
-                  <p className="text-slate-500 text-xs mb-4 flex-grow line-clamp-2 leading-relaxed">{group.description || 'Ingen beskrivelse tilgjengelig.'}</p>
-                  <div className="pt-3 border-t border-slate-100 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{members.length} medl.</span>
-                      {leaderMembers.length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <img 
-                            src={getAvatarUrl(leaderMembers[0])}
-                            alt={`${leaderMembers[0].name} avatar`}
-                            style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                            className="border border-amber-200"
-                          />
-                          <Star size={10} className="text-amber-500 fill-amber-500" />
-                          <p className="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">{leaderMembers[0].name}</p>
+                      {canManageGroup(group.id) && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={(e) => { e.stopPropagation(); setManageGroupId(group.id); }} className="p-1.5 text-slate-300 hover:text-primary rounded-theme transition-all"><Edit2 size={14} /></button>
+                          {isAdmin && (
+                            <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-theme transition-all"><Trash2 size={14} /></button>
+                          )}
                         </div>
                       )}
                     </div>
-                    {deputyLeaderMembers.length > 0 && (
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <img 
-                          src={getAvatarUrl(deputyLeaderMembers[0])}
-                          alt={`${deputyLeaderMembers[0].name} avatar`}
-                          style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
-                          className="border border-blue-200"
-                        />
-                        <Star size={10} className="text-blue-500 fill-blue-500" />
-                        <p className="text-[10px] font-bold text-slate-600 truncate max-w-[120px]">{deputyLeaderMembers[0].name} (Nestleder)</p>
+                    
+                    {/* Tags */}
+                    {groupTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {groupTags.map(tag => (
+                          <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[9px] font-bold">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     )}
-                    {leaderMembers.length === 0 && deputyLeaderMembers.length === 0 && (
-                      <p className="text-[10px] font-bold text-slate-400 text-right">Uten leder</p>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                    
+                    <p className="text-slate-500 text-xs mb-4 flex-grow line-clamp-2 leading-relaxed">{group.description || 'Ingen beskrivelse tilgjengelig.'}</p>
+                    <div className="pt-3 border-t border-slate-100 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{members.length} medl.</span>
+                        {leaderMembers.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <img 
+                              src={getAvatarUrl(leaderMembers[0])}
+                              alt={`${leaderMembers[0].name} avatar`}
+                              style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
+                              className="border border-amber-200"
+                            />
+                            <Star size={10} className="text-amber-500 fill-amber-500" />
+                            <p className="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">{leaderMembers[0].name}</p>
+                          </div>
+                        )}
+                      </div>
+                      {deputyLeaderMembers.length > 0 && (
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <img 
+                            src={getAvatarUrl(deputyLeaderMembers[0])}
+                            alt={`${deputyLeaderMembers[0].name} avatar`}
+                            style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
+                            className="border border-blue-200"
+                          />
+                          <Star size={10} className="text-blue-500 fill-blue-500" />
+                          <p className="text-[10px] font-bold text-slate-600 truncate max-w-[120px]">{deputyLeaderMembers[0].name} (Nestleder)</p>
+                        </div>
+                      )}
+                      {leaderMembers.length === 0 && deputyLeaderMembers.length === 0 && (
+                        <p className="text-[10px] font-bold text-slate-400 text-right">Uten leder</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              }) : (
+                <div className="col-span-full bg-white rounded-theme border border-slate-200 shadow-sm p-8 text-center">
+                  <p className="text-slate-500 text-sm">Ingen grupper funnet.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-theme border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">Gruppe</th>
+                    <th className="py-3 px-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">Tags</th>
+                    <th className="py-3 px-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">Beskrivelse</th>
+                    <th className="py-3 px-4 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">Medlemmer</th>
+                    <th className="py-3 px-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">Leder</th>
+                    <th className="py-3 px-4 text-right text-xs font-bold text-slate-600 uppercase tracking-wide"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredGroups.length > 0 ? filteredGroups.map(group => {
+                    const members = db.groupMembers.filter(gm => gm.group_id === group.id);
+                    const leaderMembers = members.filter(m => m.role === GroupRole.LEADER).map(m => db.persons.find(p => p.id === m.person_id)).filter(Boolean) as Person[];
+                    const groupTags = getGroupTags(group);
+                    
+                    return (
+                      <tr 
+                        key={group.id}
+                        onClick={() => setViewingGroupId(group.id)}
+                        className="hover:bg-slate-50 cursor-pointer transition-colors group"
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-slate-50 border border-slate-100 rounded-theme">{getIcon(group.category)}</div>
+                            <span className="text-sm font-bold text-slate-900">{group.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {groupTags.map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[9px] font-bold">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-slate-500 max-w-[300px] truncate">
+                          {group.description || '–'}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="text-xs font-bold text-slate-700">{members.length}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {leaderMembers.length > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={getAvatarUrl(leaderMembers[0])}
+                                alt={`${leaderMembers[0].name} avatar`}
+                                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                className="border border-amber-200"
+                              />
+                              <span className="text-xs text-slate-700">{leaderMembers[0].name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">–</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          {canManageGroup(group.id) && (
+                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={(e) => { e.stopPropagation(); setManageGroupId(group.id); }} className="p-1.5 text-slate-400 hover:text-primary bg-slate-100 rounded-theme transition-colors"><Edit2 size={14} /></button>
+                              {isAdmin && (
+                                <button onClick={(e) => { e.stopPropagation(); setIsDeletingGroup(group.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 rounded-theme transition-colors"><Trash2 size={14} /></button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center">
+                        <p className="text-slate-500 text-sm">Ingen grupper funnet.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -3208,14 +3758,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4 overflow-y-auto" onClick={() => {
           setIsCreateModalOpen(false);
-          setNewGroupCategory(GroupCategory.BARNKIRKE); // Reset til standard kategori
+          setNewGroupCategory('');
         }}>
           <div className="bg-white rounded-theme shadow-xl max-w-4xl w-full my-8 flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
               <h2 className="text-xl font-bold text-slate-900">Opprett Ny Gruppe</h2>
               <button onClick={() => {
                 setIsCreateModalOpen(false);
-                setNewGroupCategory(GroupCategory.BARNKIRKE); // Reset til standard kategori
+                setNewGroupCategory('');
               }} className="p-2 hover:bg-slate-200 rounded-theme transition-colors">
                 <X size={20} className="text-slate-600" />
               </button>
@@ -3239,10 +3789,12 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Type gruppe *</label>
                   <select
-                    value={newGroupCategory}
+                    value={newGroupCategory || ''}
                     onChange={(e) => setNewGroupCategory(e.target.value as GroupCategory)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none"
+                    required
                   >
+                    <option value="" disabled>Velg kategori</option>
                     <option value={GroupCategory.BARNKIRKE}>Barnekirke</option>
                     <option value={GroupCategory.FELLOWSHIP}>Husgruppe</option>
                     <option value={GroupCategory.SERVICE}>Team</option>

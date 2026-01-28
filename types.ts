@@ -70,6 +70,7 @@ export interface Group {
   gathering_pattern?: GatheringPattern;
   leaderId?: string;
   deputyId?: string;
+  tags?: string[]; // Standard + custom tags for flexible filtering
 }
 
 export interface GroupMember {
