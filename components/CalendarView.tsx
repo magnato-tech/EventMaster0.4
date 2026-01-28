@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppState, EventOccurrence, ServiceRole, UUID, ProgramItem, GroupCategory, Person, CoreRole, GroupRole, NoticeMessage, AttendanceResponse } from '../types';
-import { ChevronLeft, ChevronRight, Plus, UserPlus, X, Trash2, ListChecks, Info, CheckCircle2, Calendar as CalendarIcon, Repeat, LayoutGrid, List as ListIcon, Clock, Users, User, Shield, AlertTriangle, RefreshCw, UserCheck, Sparkles, ArrowRight, Library, GripVertical, Edit2, History, FileDown, MessageSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, UserPlus, X, Trash2, ListChecks, Info, CheckCircle2, Calendar as CalendarIcon, Repeat, LayoutGrid, List as ListIcon, Clock, Users, User, Shield, AlertTriangle, RefreshCw, UserCheck, Sparkles, ArrowRight, Library, GripVertical, Edit2, History, FileDown, MessageSquare, Star } from 'lucide-react';
 import PersonAvatar from './PersonAvatar';
+import { getRecurringDatesForCheck, hasRoomConflict } from '../lib/roomConflict';
 
 // Hjelpefunksjon for å parse datoer i lokal tid (Berlin time)
 const parseLocalDate = (dateString: string): Date => {
@@ -35,7 +36,7 @@ interface Props {
   onAddAssignment: (occurrenceId: string, roleId: string) => void;
   onDeleteAssignment: (id: string) => void;
   onSyncStaffing: (occurrenceId: string) => void;
-  onCreateOccurrence: (templateId: string, date: string, time?: string) => void;
+  onCreateOccurrence: (templateId: string, date: string, time?: string, roomId?: string, endTime?: string) => void;
   onUpdateOccurrence: (occurrenceId: string, updates: Partial<EventOccurrence>) => void;
   onDeleteOccurrence: (occurrenceId: string) => void;
   onCreateRecurring: (
@@ -44,7 +45,9 @@ interface Props {
     endDate: string,
     frequencyType: 'weekly' | 'monthly',
     interval: number,
-    time?: string
+    time?: string,
+    endTime?: string,
+    roomId?: string
   ) => void;
   onAddProgramItem: (item: ProgramItem) => void;
   onUpdateProgramItem: (id: string, updates: Partial<ProgramItem>) => void;
@@ -56,6 +59,15 @@ interface Props {
   focusTab?: 'program' | 'staff' | 'history' | null;
   onFocusHandled?: () => void;
 }
+
+const MASTER_TEMPLATE_TAG = 'Master';
+
+const standardCategoryLabels: Record<GroupCategory, string> = {
+  [GroupCategory.BARNKIRKE]: 'Barnekirke',
+  [GroupCategory.FELLOWSHIP]: 'Husgrupper',
+  [GroupCategory.SERVICE]: 'Teams',
+  [GroupCategory.STRATEGY]: 'Ledelse'
+};
 
 const CalendarView: React.FC<Props> = ({ 
   db, isAdmin, currentUser, onUpdateAssignment, onAddAssignment, onDeleteAssignment, onSyncStaffing, onCreateOccurrence, onUpdateOccurrence, onDeleteOccurrence, onCreateRecurring, 
@@ -92,24 +104,86 @@ const CalendarView: React.FC<Props> = ({
   const [newOccurrenceTemplateId, setNewOccurrenceTemplateId] = useState<string>('');
   const [newOccurrenceDate, setNewOccurrenceDate] = useState<string>('');
   const [newOccurrenceTime, setNewOccurrenceTime] = useState<string>('');
+  const [newOccurrenceEndTime, setNewOccurrenceEndTime] = useState<string>('');
+  const [newOccurrenceRoomId, setNewOccurrenceRoomId] = useState<string>('');
   const [recTemplateId, setRecTemplateId] = useState<string>('');
   const [recStartDate, setRecStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [recStartTime, setRecStartTime] = useState<string>('');
+  const [recEndTime, setRecEndTime] = useState<string>('');
+  const [recRoomId, setRecRoomId] = useState<string>('');
   const [recEndDate, setRecEndDate] = useState<string>('');
   const [recFrequency, setRecFrequency] = useState<'weekly' | 'biweekly' | 'triweekly' | 'quadweekly' | 'monthly'>('weekly');
   const [recMonthWeek, setRecMonthWeek] = useState<number>(1);
   const [editOccurrenceDate, setEditOccurrenceDate] = useState<string>('');
   const [editOccurrenceTime, setEditOccurrenceTime] = useState<string>('');
+  const [editOccurrenceEndTime, setEditOccurrenceEndTime] = useState<string>('');
   const [editOccurrenceTheme, setEditOccurrenceTheme] = useState<string>('');
   const [editOccurrenceBibleVerse, setEditOccurrenceBibleVerse] = useState<string>('');
   const [isEditingOwner, setIsEditingOwner] = useState(false);
+  const [selectedCalendarTags, setSelectedCalendarTags] = useState<Set<string>>(new Set(['Alle']));
+  const [showMasterOccurrences, setShowMasterOccurrences] = useState(true);
   
   // Drag and Drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  const occurrences = [...db.eventOccurrences].sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
+  const getGroupTags = (group: { category: GroupCategory | string; tags?: string[] }): string[] => {
+    const standardTag = (group.category && standardCategoryLabels[group.category as GroupCategory]) || group.category || '';
+    const tagSet = new Set([standardTag, ...(group.tags || [])].filter(Boolean));
+    return Array.from(tagSet);
+  };
+
+  const getOccurrenceTags = (occ: EventOccurrence): string[] => {
+    if (occ.tags && occ.tags.length > 0) {
+      return occ.tags;
+    }
+    if (occ.template_id) {
+      return [MASTER_TEMPLATE_TAG];
+    }
+    if (occ.title_override) {
+      const match = db.groups.find(g => g.name.trim().toLowerCase() === occ.title_override?.trim().toLowerCase());
+      if (match) {
+        return getGroupTags(match);
+      }
+    }
+    return [];
+  };
+
+  const isMasterOccurrence = (occ: EventOccurrence) => {
+    const tags = getOccurrenceTags(occ);
+    return tags.includes(MASTER_TEMPLATE_TAG);
+  };
+
+  const occurrences = useMemo(
+    () => [...db.eventOccurrences].sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()),
+    [db.eventOccurrences]
+  );
+
+  const availableCalendarTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    db.groups.forEach(group => {
+      getGroupTags(group).forEach(tag => tagSet.add(tag));
+    });
+    db.eventOccurrences.forEach(occ => {
+      getOccurrenceTags(occ).forEach(tag => tagSet.add(tag));
+    });
+    tagSet.delete(MASTER_TEMPLATE_TAG);
+    return Array.from(tagSet).sort();
+  }, [db.groups, db.eventOccurrences]);
+
+  const filteredOccurrences = useMemo(() => {
+    const base = showMasterOccurrences
+      ? occurrences
+      : occurrences.filter(occ => !isMasterOccurrence(occ));
+    if (selectedCalendarTags.has('Alle')) return base;
+    return base.filter(occ => {
+      const tags = getOccurrenceTags(occ);
+      return tags.some(tag => selectedCalendarTags.has(tag));
+    });
+  }, [occurrences, selectedCalendarTags, showMasterOccurrences]);
+
   const selectedOcc = db.eventOccurrences.find(o => o.id === selectedOccId);
+  const isGroupOccurrence = Boolean(selectedOcc && selectedOcc.template_id === null && selectedOcc.title_override);
   const isOwner = Boolean(selectedOcc && selectedOcc.owner_id === currentUser.id);
   const canEditEvent = Boolean(isAdmin || isOwner);
   const canSendMessage = Boolean(currentUser.is_admin || isOwner);
@@ -145,17 +219,32 @@ const CalendarView: React.FC<Props> = ({
       interval = 4;
     }
 
+    if (db.roomConflictCheckEnabled && recRoomId) {
+      const dates = getRecurringDatesForCheck(recStartDate, recEndDate, frequencyType, interval);
+      const hasConflict = dates.some(date =>
+        hasRoomConflict(db.eventOccurrences, recRoomId, date, recStartTime || undefined, recEndTime || undefined)
+      );
+      if (hasConflict) {
+        alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+        return;
+      }
+    }
+
     onCreateRecurring(
       recTemplateId,
       recStartDate,
       recEndDate,
       frequencyType,
       interval,
-      recStartTime || undefined
+      recStartTime || undefined,
+      recEndTime || undefined,
+      recRoomId || undefined
     );
 
     setIsRecurringModalOpen(false);
     setRecStartTime('');
+    setRecEndTime('');
+    setRecRoomId('');
     setRecEndDate('');
     setRecFrequency('weekly');
     setRecMonthWeek(1);
@@ -184,7 +273,9 @@ const CalendarView: React.FC<Props> = ({
     if (selectedOcc) {
       setEditOccurrenceDate(selectedOcc.date);
       setEditOccurrenceTime(formatTimeForInput(selectedOcc.time));
+      setEditOccurrenceEndTime(formatTimeForInput(selectedOcc.end_time));
       setEditOccurrenceTheme(selectedOcc.theme || '');
+      setEditOccurrenceBibleVerse(selectedOcc.bible_verse || '');
     }
   }, [selectedOccId]);
 
@@ -219,7 +310,31 @@ const CalendarView: React.FC<Props> = ({
 
   const getOccurrencesForDate = (date: Date) => {
     const dateStr = formatLocalDate(date);
-    return db.eventOccurrences.filter(o => o.date === dateStr);
+    return filteredOccurrences.filter(o => o.date === dateStr);
+  };
+
+  const formatTimeRange = (start?: string, end?: string) => {
+    if (start && end) return `${start}–${end}`;
+    return start || end || '';
+  };
+
+  const toggleCalendarTag = (tag: string) => {
+    setSelectedCalendarTags(prev => {
+      const next = new Set(prev);
+      if (tag === 'Alle') {
+        return new Set(['Alle']);
+      }
+      next.delete('Alle');
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
+      if (next.size === 0) {
+        next.add('Alle');
+      }
+      return next;
+    });
   };
 
   const handleOpenAddModal = () => {
@@ -560,7 +675,12 @@ const CalendarView: React.FC<Props> = ({
     if (!selectedOcc) return;
     const title = selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id);
     const dateLabel = new Intl.DateTimeFormat('no-NO', { dateStyle: 'long' }).format(parseLocalDate(selectedOcc.date));
-    const timeLabel = selectedOcc.time ? `kl. ${selectedOcc.time}` : '';
+    const timeLabel = (selectedOcc.time || selectedOcc.end_time)
+      ? `kl. ${formatTimeRange(selectedOcc.time, selectedOcc.end_time)}`
+      : '';
+    const roomLabel = selectedOcc.room_id
+      ? (db.rooms.find(room => room.id === selectedOcc.room_id)?.name || 'Ukjent rom')
+      : '';
 
     const programRows = programWithTimes.map((item) => {
       const role = db.serviceRoles.find(r => r.id === item.service_role_id);
@@ -607,7 +727,11 @@ const CalendarView: React.FC<Props> = ({
         </head>
         <body>
           <h1>${escapeHtml(title)}</h1>
-          <div class="meta">${escapeHtml(dateLabel)} ${escapeHtml(timeLabel)}</div>
+          <div class="meta">
+            ${escapeHtml(dateLabel)}
+            ${timeLabel ? ` ${escapeHtml(timeLabel)}` : ''}
+            ${roomLabel ? ` · ${escapeHtml(roomLabel)}` : ''}
+          </div>
 
           <div class="section">
             <h2>Kjøreplan</h2>
@@ -695,6 +819,46 @@ const CalendarView: React.FC<Props> = ({
             <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-theme transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-500'}`}><ListIcon size={16} /></button>
             <button onClick={() => setViewMode('calendar')} className={`p-1.5 rounded-theme transition-all ${viewMode === 'calendar' ? 'bg-white shadow-sm text-primary' : 'text-slate-500'}`}><LayoutGrid size={16} /></button>
           </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowMasterOccurrences(prev => !prev)}
+              className={`p-1.5 rounded-theme border transition-all ${
+                showMasterOccurrences
+                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                  : 'bg-white text-slate-400 border-slate-200 hover:border-amber-200 hover:text-amber-600'
+              }`}
+              title={MASTER_TEMPLATE_TAG}
+              aria-label={MASTER_TEMPLATE_TAG}
+            >
+              <Star size={14} className={showMasterOccurrences ? 'fill-current' : ''} />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleCalendarTag('Alle')}
+              className={`px-2 py-1 rounded-theme text-[10px] font-bold uppercase tracking-wide border transition-all ${
+                selectedCalendarTags.has('Alle')
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-primary-light hover:text-slate-700'
+              }`}
+            >
+              Alle
+            </button>
+            {availableCalendarTags.map(tag => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleCalendarTag(tag)}
+                className={`px-2 py-1 rounded-theme text-[10px] font-bold uppercase tracking-wide border transition-all ${
+                  selectedCalendarTags.has(tag)
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-primary-light hover:text-slate-700'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -739,7 +903,7 @@ const CalendarView: React.FC<Props> = ({
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-left">
-            {occurrences.map(occ => (
+          {filteredOccurrences.map(occ => (
               <div key={occ.id} className={`relative text-left p-4 rounded-theme border transition-all group ${selectedOccId === occ.id ? 'bg-white border-primary shadow-sm' : 'bg-white border-slate-100 hover:border-primary-light'}`}>
                 <button 
                   onClick={() => { setSelectedOccId(occ.id); setActiveTab('program'); }} 
@@ -755,7 +919,14 @@ const CalendarView: React.FC<Props> = ({
                   )}
                   <p className="text-slate-500 text-xs">
                     {new Intl.DateTimeFormat('no-NO', { day: 'numeric', month: 'short' }).format(parseLocalDate(occ.date))}
-                    {occ.time && <span className="ml-2 font-semibold">{occ.time}</span>}
+                    {(occ.time || occ.end_time) && (
+                      <span className="ml-2 font-semibold">{formatTimeRange(occ.time, occ.end_time)}</span>
+                    )}
+                    {occ.room_id && (
+                      <span className="ml-2 font-semibold">
+                        {db.rooms.find(room => room.id === occ.room_id)?.name || 'Ukjent rom'}
+                      </span>
+                    )}
                   </p>
                 </button>
                 {isAdmin && (
@@ -865,11 +1036,16 @@ const CalendarView: React.FC<Props> = ({
                           }}
                         >
                           <div className="flex items-center gap-1.5">
-                            {occ.time && (
-                              <span className="font-bold shrink-0">{occ.time}</span>
+                            {(occ.time || occ.end_time) && (
+                              <span className="font-bold shrink-0">{formatTimeRange(occ.time, occ.end_time)}</span>
                             )}
                             <span className="truncate">{occ.title_override || getTemplateTitle(occ.template_id)}</span>
                           </div>
+                          {occ.room_id && (
+                            <div className="text-[9px] text-white/80 truncate">
+                              {db.rooms.find(room => room.id === occ.room_id)?.name || 'Ukjent rom'}
+                            </div>
+                          )}
                         </button>
                         {isAdmin && (
                           <button
@@ -899,81 +1075,219 @@ const CalendarView: React.FC<Props> = ({
         <div className="fixed inset-0 md:inset-y-0 md:left-64 md:right-0 z-[60] bg-white flex flex-col animate-in slide-in-from-right duration-300 border-l shadow-2xl">
           <div className="px-6 py-4 border-b flex justify-between items-center bg-slate-50 shrink-0">
             <div className="text-left flex-1">
-              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                <span className="px-1.5 py-0.5 bg-primary-light text-primary text-[9px] font-bold uppercase rounded-theme">Planlegging</span>
-                {isAdmin ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={editOccurrenceDate || selectedOcc.date}
-                      onChange={(e) => {
-                        setEditOccurrenceDate(e.target.value);
-                        onUpdateOccurrence(selectedOcc.id, { date: e.target.value });
-                      }}
-                      className="text-xs border border-slate-300 rounded-theme px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
-                    />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="HH:mm"
-                      maxLength={5}
-                      value={editOccurrenceTime !== undefined ? editOccurrenceTime : formatTimeForInput(selectedOcc.time)}
-                      onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setEditOccurrenceTime(nextValue);
-                        onUpdateOccurrence(selectedOcc.id, { time: nextValue || undefined });
-                      }}
-                      onBlur={(e) => {
-                        const normalized = normalizeTimeInput(e.target.value);
-                        setEditOccurrenceTime(normalized);
-                        onUpdateOccurrence(selectedOcc.id, { time: normalized || undefined });
-                      }}
-                      className="text-xs border border-slate-300 rounded-theme px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    {new Intl.DateTimeFormat('no-NO', { dateStyle: 'long' }).format(parseLocalDate(selectedOcc.date))}
-                    {selectedOcc.time && <span className="ml-2 font-semibold">{selectedOcc.time}</span>}
-                  </p>
-                )}
-              </div>
               <h3 className="text-xl font-bold text-slate-900">{selectedOcc.title_override || getTemplateTitle(selectedOcc.template_id)}</h3>
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                <span className="font-semibold text-slate-600">Eventleder:</span>
-                {isEditingOwner && currentUser.is_admin ? (
-                  <select
-                    value={selectedOcc.owner_id || ''}
-                    onChange={(e) => {
-                      const nextOwner = e.target.value || undefined;
-                      onUpdateOccurrence(selectedOcc.id, { owner_id: nextOwner });
-                      setIsEditingOwner(false);
-                    }}
-                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-xs"
-                  >
-                    <option value="">Ikke satt</option>
-                    {db.persons
-                      .filter(p => p.is_active)
-                      .map(person => (
-                        <option key={person.id} value={person.id}>{person.name}</option>
-                      ))}
-                  </select>
-                ) : (
-                  <span>{db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ikke satt'}</span>
-                )}
-                {currentUser.is_admin && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingOwner(prev => !prev)}
-                    className="p-1 text-slate-400 hover:text-primary transition-colors"
-                    title="Rediger eventleder"
-                  >
-                    <Edit2 size={14} />
-                  </button>
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
+                  <span className="px-1.5 py-0.5 bg-primary-light text-primary text-[9px] font-bold uppercase rounded-theme">Planlegging</span>
+                  {isAdmin ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={editOccurrenceDate || selectedOcc.date}
+                        onChange={(e) => {
+                          const nextDate = e.target.value;
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            selectedOcc.room_id &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              selectedOcc.room_id,
+                              nextDate,
+                              editOccurrenceTime || selectedOcc.time,
+                              editOccurrenceEndTime || selectedOcc.end_time,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          setEditOccurrenceDate(nextDate);
+                          onUpdateOccurrence(selectedOcc.id, { date: nextDate });
+                        }}
+                        className="text-xs border border-slate-300 rounded-theme px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="HH:mm"
+                        maxLength={5}
+                        value={editOccurrenceTime !== undefined ? editOccurrenceTime : formatTimeForInput(selectedOcc.time)}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            selectedOcc.room_id &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              selectedOcc.room_id,
+                              selectedOcc.date,
+                              nextValue,
+                              editOccurrenceEndTime || selectedOcc.end_time,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          setEditOccurrenceTime(nextValue);
+                          onUpdateOccurrence(selectedOcc.id, { time: nextValue || undefined });
+                        }}
+                        onBlur={(e) => {
+                          const normalized = normalizeTimeInput(e.target.value);
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            selectedOcc.room_id &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              selectedOcc.room_id,
+                              selectedOcc.date,
+                              normalized || undefined,
+                              editOccurrenceEndTime || selectedOcc.end_time,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          setEditOccurrenceTime(normalized);
+                          onUpdateOccurrence(selectedOcc.id, { time: normalized || undefined });
+                        }}
+                        className="text-xs border border-slate-300 rounded-theme px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="HH:mm"
+                        maxLength={5}
+                        value={editOccurrenceEndTime !== undefined ? editOccurrenceEndTime : formatTimeForInput(selectedOcc.end_time)}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            selectedOcc.room_id &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              selectedOcc.room_id,
+                              selectedOcc.date,
+                              editOccurrenceTime || selectedOcc.time,
+                              nextValue,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          setEditOccurrenceEndTime(nextValue);
+                          onUpdateOccurrence(selectedOcc.id, { end_time: nextValue || undefined });
+                        }}
+                        onBlur={(e) => {
+                          const normalized = normalizeTimeInput(e.target.value);
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            selectedOcc.room_id &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              selectedOcc.room_id,
+                              selectedOcc.date,
+                              editOccurrenceTime || selectedOcc.time,
+                              normalized || undefined,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          setEditOccurrenceEndTime(normalized);
+                          onUpdateOccurrence(selectedOcc.id, { end_time: normalized || undefined });
+                        }}
+                        className="text-xs border border-slate-300 rounded-theme px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-500">
+                      {new Intl.DateTimeFormat('no-NO', { dateStyle: 'long' }).format(parseLocalDate(selectedOcc.date))}
+                      {(selectedOcc.time || selectedOcc.end_time) && (
+                        <span className="ml-2 font-semibold">
+                          {formatTimeRange(selectedOcc.time, selectedOcc.end_time)}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                {!isGroupOccurrence && (
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500">
+                    <span className="font-semibold text-slate-600">Eventleder:</span>
+                    {isEditingOwner && currentUser.is_admin ? (
+                      <select
+                        value={selectedOcc.owner_id || ''}
+                        onChange={(e) => {
+                          const nextOwner = e.target.value || undefined;
+                          onUpdateOccurrence(selectedOcc.id, { owner_id: nextOwner });
+                          setIsEditingOwner(false);
+                        }}
+                        className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-xs"
+                      >
+                        <option value="">Ikke satt</option>
+                        {db.persons
+                          .filter(p => p.is_active)
+                          .map(person => (
+                            <option key={person.id} value={person.id}>{person.name}</option>
+                          ))}
+                      </select>
+                    ) : (
+                      <span>{db.persons.find(p => p.id === selectedOcc.owner_id)?.name || 'Ikke satt'}</span>
+                    )}
+                    {currentUser.is_admin && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingOwner(prev => !prev)}
+                        className="p-1 text-slate-400 hover:text-primary transition-colors"
+                        title="Rediger eventleder"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    )}
+                    <span className="font-semibold text-slate-600">Rom:</span>
+                    {isAdmin ? (
+                      <select
+                        value={selectedOcc.room_id || ''}
+                        onChange={(e) => {
+                          const nextRoomId = e.target.value || undefined;
+                          if (
+                            db.roomConflictCheckEnabled &&
+                            nextRoomId &&
+                            hasRoomConflict(
+                              db.eventOccurrences,
+                              nextRoomId,
+                              selectedOcc.date,
+                              editOccurrenceTime || selectedOcc.time,
+                              editOccurrenceEndTime || selectedOcc.end_time,
+                              selectedOcc.id
+                            )
+                          ) {
+                            alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                            return;
+                          }
+                          onUpdateOccurrence(selectedOcc.id, { room_id: nextRoomId });
+                        }}
+                        className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-theme outline-none focus:ring-2 focus:ring-primary text-xs"
+                      >
+                        <option value="">Ikke valgt</option>
+                        {db.rooms.map(room => (
+                          <option key={room.id} value={room.id}>
+                            {room.name}
+                            {room.capacity ? ` (${room.capacity})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span>{db.rooms.find(room => room.id === selectedOcc.room_id)?.name || 'Ikke valgt'}</span>
+                    )}
+                  </div>
                 )}
               </div>
               {/* Tema-felt (synlig og redigerbart for admin) */}
-              {isAdmin ? (
+              {!isGroupOccurrence && (isAdmin ? (
                 <div className="mt-2">
                   <input
                     type="text"
@@ -988,7 +1302,7 @@ const CalendarView: React.FC<Props> = ({
                 </div>
               ) : selectedOcc.theme ? (
                 <p className="text-sm text-slate-600 italic mt-2">{selectedOcc.theme}</p>
-              ) : null}
+              ) : null)}
 
             </div>
             <div className="flex items-center gap-2">
@@ -1043,15 +1357,54 @@ const CalendarView: React.FC<Props> = ({
             </div>
           </div>
           
-          <div className="flex bg-slate-50 border-b shrink-0 px-6">
-            <button onClick={() => setActiveTab('program')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'program' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>1. Kjøreplan</button>
-            <button onClick={() => setActiveTab('staff')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'staff' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>2. Bemanningsliste</button>
-            <button onClick={() => setActiveTab('history')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'history' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>3. Endringslogg</button>
-          </div>
+          {!isGroupOccurrence && (
+            <div className="flex bg-slate-50 border-b shrink-0 px-6">
+              <button onClick={() => setActiveTab('program')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'program' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>1. Kjøreplan</button>
+              <button onClick={() => setActiveTab('staff')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'staff' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>2. Bemanningsliste</button>
+              <button onClick={() => setActiveTab('history')} className={`px-6 py-3 text-xs font-bold border-b-2 transition-all ${activeTab === 'history' ? 'border-primary text-primary bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>3. Endringslogg</button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-6 bg-white">
             <div className="max-w-4xl mx-auto">
-              {activeTab === 'program' ? (
+              {isGroupOccurrence ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Tema</label>
+                    {isAdmin ? (
+                      <input
+                        type="text"
+                        value={editOccurrenceTheme !== undefined ? editOccurrenceTheme : (selectedOcc.theme || '')}
+                        onChange={(e) => {
+                          setEditOccurrenceTheme(e.target.value);
+                          onUpdateOccurrence(selectedOcc.id, { theme: e.target.value.trim() || undefined });
+                        }}
+                        placeholder="Tema for møtet..."
+                        className="mt-2 text-sm text-slate-700 w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                      />
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-700 italic">{selectedOcc.theme || '–'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Tekst</label>
+                    {isAdmin ? (
+                      <textarea
+                        rows={6}
+                        value={editOccurrenceBibleVerse !== undefined ? editOccurrenceBibleVerse : (selectedOcc.bible_verse || '')}
+                        onChange={(e) => {
+                          setEditOccurrenceBibleVerse(e.target.value);
+                          onUpdateOccurrence(selectedOcc.id, { bible_verse: e.target.value.trim() || undefined });
+                        }}
+                        placeholder="Skriv en kort tekst eller notat..."
+                        className="mt-2 text-sm text-slate-700 w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary focus:border-primary outline-none resize-none"
+                      />
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-700 whitespace-pre-line">{selectedOcc.bible_verse || '–'}</p>
+                    )}
+                  </div>
+                </div>
+              ) : activeTab === 'program' ? (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <div className="flex justify-between items-center border-b pb-3 border-slate-100">
                     <h2 className="text-base font-bold text-slate-800 uppercase tracking-tight">Programoversikt</h2>
@@ -1707,6 +2060,8 @@ const CalendarView: React.FC<Props> = ({
                 setIsCreateOccurrenceModalOpen(false);
                 setNewOccurrenceDate('');
                 setNewOccurrenceTime('');
+                setNewOccurrenceEndTime('');
+                setNewOccurrenceRoomId('');
                 setNewOccurrenceTemplateId('');
               }}>
                 <X size={18} />
@@ -1715,10 +2070,32 @@ const CalendarView: React.FC<Props> = ({
             <form onSubmit={(e) => {
               e.preventDefault();
               if (newOccurrenceTemplateId && newOccurrenceDate) {
-                onCreateOccurrence(newOccurrenceTemplateId, newOccurrenceDate, newOccurrenceTime || undefined);
+                if (
+                  db.roomConflictCheckEnabled &&
+                  newOccurrenceRoomId &&
+                  hasRoomConflict(
+                    db.eventOccurrences,
+                    newOccurrenceRoomId,
+                    newOccurrenceDate,
+                    newOccurrenceTime || undefined,
+                    newOccurrenceEndTime || undefined
+                  )
+                ) {
+                  alert('Lokalet er opptatt. Finn nytt lokale eller endre tidspunkt.');
+                  return;
+                }
+                onCreateOccurrence(
+                  newOccurrenceTemplateId,
+                  newOccurrenceDate,
+                  newOccurrenceTime || undefined,
+                  newOccurrenceRoomId || undefined,
+                  newOccurrenceEndTime || undefined
+                );
                 setIsCreateOccurrenceModalOpen(false);
                 setNewOccurrenceDate('');
                 setNewOccurrenceTime('');
+                setNewOccurrenceEndTime('');
+                setNewOccurrenceRoomId('');
                 setNewOccurrenceTemplateId('');
               }
             }} className="p-5 space-y-4">
@@ -1759,6 +2136,35 @@ const CalendarView: React.FC<Props> = ({
                   className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sluttid (valgfritt)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:mm"
+                  maxLength={5}
+                  value={newOccurrenceEndTime}
+                  onChange={(e) => setNewOccurrenceEndTime(e.target.value)}
+                  onBlur={(e) => setNewOccurrenceEndTime(normalizeTimeInput(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rom (valgfritt)</label>
+                <select
+                  value={newOccurrenceRoomId}
+                  onChange={(e) => setNewOccurrenceRoomId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="">Ikke valgt</option>
+                  {db.rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                      {room.capacity ? ` (${room.capacity})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -1766,6 +2172,8 @@ const CalendarView: React.FC<Props> = ({
                     setIsCreateOccurrenceModalOpen(false);
                     setNewOccurrenceDate('');
                     setNewOccurrenceTime('');
+                    setNewOccurrenceEndTime('');
+                    setNewOccurrenceRoomId('');
                     setNewOccurrenceTemplateId('');
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-theme text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
@@ -1790,7 +2198,15 @@ const CalendarView: React.FC<Props> = ({
           <div className="relative bg-white w-full max-w-md rounded-theme shadow-xl overflow-hidden text-left animate-in zoom-in-95">
             <div className="p-4 bg-primary text-white flex justify-between items-center">
               <h3 className="text-sm font-bold uppercase tracking-tight">Planlegg serie</h3>
-              <button onClick={() => setIsRecurringModalOpen(false)}>
+              <button onClick={() => {
+                setIsRecurringModalOpen(false);
+                setRecStartTime('');
+                setRecEndTime('');
+                setRecRoomId('');
+                setRecEndDate('');
+                setRecFrequency('weekly');
+                setRecMonthWeek(1);
+              }}>
                 <X size={18} />
               </button>
             </div>
@@ -1831,6 +2247,35 @@ const CalendarView: React.FC<Props> = ({
                   onBlur={(e) => setRecStartTime(normalizeTimeInput(e.target.value))}
                   className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
                 />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sluttid (valgfritt)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="HH:mm"
+                  maxLength={5}
+                  value={recEndTime}
+                  onChange={(e) => setRecEndTime(e.target.value)}
+                  onBlur={(e) => setRecEndTime(normalizeTimeInput(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rom (valgfritt)</label>
+                <select
+                  value={recRoomId}
+                  onChange={(e) => setRecRoomId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-theme text-sm focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="">Ikke valgt</option>
+                  {db.rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                      {room.capacity ? ` (${room.capacity})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Siste dato</label>
@@ -1889,13 +2334,21 @@ const CalendarView: React.FC<Props> = ({
                 </div>
               )}
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRecurringModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-theme text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
-                >
-                  Avbryt
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRecurringModalOpen(false);
+                  setRecStartTime('');
+                  setRecEndTime('');
+                  setRecRoomId('');
+                  setRecEndDate('');
+                  setRecFrequency('weekly');
+                  setRecMonthWeek(1);
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-theme text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                Avbryt
+              </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-primary text-white rounded-theme text-sm font-bold hover:bg-primary-hover transition-all"

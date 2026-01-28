@@ -136,6 +136,12 @@ export const getDB = (): AppState => {
   if (!Array.isArray((parsedData as AppState).groupTags)) {
     (parsedData as AppState).groupTags = [];
   }
+  if (!Array.isArray((parsedData as AppState).rooms)) {
+    (parsedData as AppState).rooms = [];
+  }
+  if (typeof (parsedData as AppState).roomConflictCheckEnabled !== 'boolean') {
+    (parsedData as AppState).roomConflictCheckEnabled = false;
+  }
 
   // Flett inn bilde-URLer fra bildebasen hvis de finnes
   try {

@@ -43,6 +43,7 @@ export interface GatheringPattern {
   start_date: string;
   end_date?: string;
   time?: string;
+  end_time?: string;
 }
 
 export interface Person {
@@ -68,6 +69,7 @@ export interface Group {
   category: GroupCategoryValue;
   description?: string;
   link?: string;
+  color?: string; // Hex color for calendar events
   parent_id?: UUID | null;
   gathering_pattern?: GatheringPattern;
   leaderId?: string;
@@ -81,6 +83,12 @@ export interface GroupMember {
   person_id: UUID;
   role: GroupRole;
   service_role_id?: UUID | null;
+}
+
+export interface Room {
+  id: UUID;
+  name: string;
+  capacity?: number;
 }
 
 export interface ServiceRole {
@@ -112,9 +120,12 @@ export interface EventOccurrence {
   template_id: UUID | null;
   date: string;
   time?: string; // Format: "HH:mm" (e.g., "10:00")
+  end_time?: string; // Format: "HH:mm" (e.g., "12:00")
+  room_id?: UUID;
   title_override?: string;
   theme?: string; // Tema for dagen i tekstformat
   bible_verse?: string; // Dagens bibbelord
+  tags?: string[]; // Tags for filtering and grouping
   status: OccurrenceStatus;
   last_synced_at?: string;
   color?: string; // Farge for event (arves fra template)
@@ -211,6 +222,8 @@ export interface AppState {
   groupMembers: GroupMember[];
   serviceRoles: ServiceRole[];
   groupServiceRoles: GroupServiceRole[];
+  rooms: Room[];
+  roomConflictCheckEnabled?: boolean;
   eventTemplates: EventTemplate[];
   eventOccurrences: EventOccurrence[];
   assignments: Assignment[];

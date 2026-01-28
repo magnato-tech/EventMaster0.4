@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AppState, Group, GroupCategory, GroupCategoryValue, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
 import { saveImageLibraryEntry, removeImageLibraryEntry } from '../db';
 import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby, Filter, LayoutGrid, Table, Tag } from 'lucide-react';
@@ -38,6 +38,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [isCreatePersonModalOpen, setIsCreatePersonModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [newPersonImageUrl, setNewPersonImageUrl] = useState('');
+  const gatheringSectionRef = useRef<HTMLDivElement | null>(null);
   const [editingPersonImageUrl, setEditingPersonImageUrl] = useState('');
   
   // Familie States
@@ -71,11 +72,13 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [newGroupCategory, setNewGroupCategory] = useState<GroupCategoryValue | ''>('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupLink, setNewGroupLink] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState<string>('#2563eb');
   const [newGroupLeaderId, setNewGroupLeaderId] = useState<UUID | null>(null);
   const [newGroupMemberIds, setNewGroupMemberIds] = useState<UUID[]>([]);
   const [newGroupFrequency, setNewGroupFrequency] = useState<number>(1);
   const [newGroupStartDate, setNewGroupStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [newGroupStartTime, setNewGroupStartTime] = useState<string>('');
+  const [newGroupEndTime, setNewGroupEndTime] = useState<string>('');
   const [newGroupEndDate, setNewGroupEndDate] = useState<string>('');
   const [isDeletingGroup, setIsDeletingGroup] = useState<UUID | null>(null);
   const [isAddingMemberToGroup, setIsAddingMemberToGroup] = useState(false);
@@ -87,6 +90,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [editingGroupCategory, setEditingGroupCategory] = useState<GroupCategoryValue>(GroupCategory.SERVICE);
   const [editingGroupDescription, setEditingGroupDescription] = useState('');
   const [editingGroupLink, setEditingGroupLink] = useState('');
+  const [editingGroupColor, setEditingGroupColor] = useState<string>('#2563eb');
   const [isGatheringPatternExpanded, setIsGatheringPatternExpanded] = useState(false);
 
   // Search States
@@ -347,6 +351,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         setEditingGroupCategory(group.category);
         setEditingGroupDescription(group.description || '');
         setEditingGroupLink(group.link || '');
+        setEditingGroupColor(group.color || '#2563eb');
         if (group.gathering_pattern) {
           const normalizedPattern = {
             ...group.gathering_pattern,
@@ -368,6 +373,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       setEditingGroupCategory(GroupCategory.SERVICE);
       setEditingGroupDescription('');
       setEditingGroupLink('');
+      setEditingGroupColor('#2563eb');
       setTempPattern(null);
     }
   }, [manageGroupId, db.groups, canManageGroup]);
@@ -382,6 +388,14 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       }
     }
   }, [viewingFamilyId, db.families]);
+
+  useEffect(() => {
+    if (!isGatheringPatternExpanded || !gatheringSectionRef.current) return;
+    const handle = window.setTimeout(() => {
+      gatheringSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => window.clearTimeout(handle);
+  }, [isGatheringPatternExpanded]);
 
   const personData = useMemo(() => {
     if (!selectedPersonId) return null;
@@ -466,6 +480,71 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     return new Date(year, month - 1, day).getDay();
   };
 
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const buildGroupOccurrences = (
+    pattern: GatheringPattern,
+    groupName: string,
+    existingOccurrences: EventOccurrence[],
+    existingTitles: string[],
+    groupTags: string[],
+    groupColor?: string
+  ): EventOccurrence[] => {
+    if (!groupName.trim()) return [];
+    const titleCandidates = new Set(existingTitles.map(t => t.trim()).filter(Boolean));
+    if (titleCandidates.size === 0) return [];
+
+    const newOccurrences: EventOccurrence[] = [];
+    let current = parseLocalDate(pattern.start_date);
+    const endDate = pattern.end_date ? parseLocalDate(pattern.end_date) : null;
+    let iterations = 0;
+
+    while (true) {
+      const dateStr = formatLocalDate(current);
+      const exists = existingOccurrences.some(
+        o => o.date === dateStr && o.title_override && titleCandidates.has(o.title_override)
+      );
+      if (!exists) {
+        newOccurrences.push({
+          id: crypto.randomUUID(),
+          template_id: null,
+          date: dateStr,
+          time: pattern.time || undefined,
+          end_time: pattern.end_time || undefined,
+          title_override: groupName.trim(),
+          tags: groupTags.length > 0 ? groupTags : undefined,
+          color: groupColor || undefined,
+          status: OccurrenceStatus.DRAFT
+        });
+      }
+
+      iterations += 1;
+      if (endDate) {
+        if (current >= endDate) break;
+      } else if (iterations >= syncCount) {
+        break;
+      }
+
+      if (pattern.frequency_type === 'weeks') {
+        current.setDate(current.getDate() + (pattern.interval * 7));
+      } else {
+        current.setMonth(current.getMonth() + pattern.interval);
+      }
+    }
+
+    return newOccurrences;
+  };
+
   const handleUpdateGatheringPattern = (updates: Partial<GatheringPattern>) => {
     if (!tempPattern || !manageGroupId) return;
     const nextUpdates = { ...updates };
@@ -480,40 +559,31 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     }));
   };
 
-  const handleSyncToCalendar = () => {
-    if (!managedGroup || !tempPattern) return;
-    const newOccurrences: EventOccurrence[] = [];
-    let current = new Date(tempPattern.start_date);
-    const endDate = tempPattern.end_date ? new Date(tempPattern.end_date) : null;
-    let iterations = 0;
-    while (true) {
-      const dateStr = current.toISOString().split('T')[0];
-      const exists = db.eventOccurrences.some(o => o.date === dateStr && o.title_override === managedGroup.name);
-      if (!exists) {
-        newOccurrences.push({
-          id: crypto.randomUUID(),
-          template_id: null,
-          date: dateStr,
-          time: tempPattern.time || undefined,
-          title_override: managedGroup.name,
-          status: OccurrenceStatus.DRAFT
-        });
-      }
-      iterations += 1;
-      if (endDate) {
-        if (current >= endDate) break;
-      } else if (iterations >= syncCount) {
-        break;
-      }
-      if (tempPattern.frequency_type === 'weeks') {
-        current.setDate(current.getDate() + (tempPattern.interval * 7));
-      } else {
-        current.setMonth(current.getMonth() + tempPattern.interval);
-      }
-    }
-    if (newOccurrences.length > 0) {
-      setDb(prev => ({ ...prev, eventOccurrences: [...prev.eventOccurrences, ...newOccurrences] }));
-      alert(`${newOccurrences.length} samlinger lagt til i kalenderen.`);
+  const handleSyncToCalendar = (options?: {
+    groupName?: string;
+    pattern?: GatheringPattern;
+    showAlert?: boolean;
+    existingTitles?: string[];
+    groupTags?: string[];
+    groupColor?: string;
+  }) => {
+    const groupName = options?.groupName ?? managedGroup?.name ?? '';
+    const pattern = options?.pattern ?? tempPattern;
+    if (!pattern || !groupName.trim()) return;
+    const titleCandidates = options?.existingTitles ?? [groupName, managedGroup?.name].filter(Boolean) as string[];
+    const calendarTags = options?.groupTags ?? getGroupTags(managedGroup || { category: '', tags: [] } as Group);
+    const calendarColor = options?.groupColor ?? managedGroup?.color;
+    let newCount = 0;
+
+    setDb(prev => {
+      const newOccurrences = buildGroupOccurrences(pattern, groupName, prev.eventOccurrences, titleCandidates, calendarTags, calendarColor);
+      newCount = newOccurrences.length;
+      if (newOccurrences.length === 0) return prev;
+      return { ...prev, eventOccurrences: [...prev.eventOccurrences, ...newOccurrences] };
+    });
+
+    if (options?.showAlert !== false && newCount > 0) {
+      alert(`${newCount} samlinger lagt til i kalenderen.`);
     }
   };
 
@@ -662,10 +732,21 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       category: editingGroupCategory,
       description: editingGroupDescription.trim() || undefined,
       link: editingGroupLink.trim() || undefined,
+      color: editingGroupColor || undefined,
       gathering_pattern: tempPattern || undefined
     };
     
     handleUpdateGroupBasicInfo(updates);
+    if (tempPattern && editingGroupName.trim()) {
+      handleSyncToCalendar({
+        groupName: editingGroupName.trim(),
+        pattern: tempPattern,
+        groupTags: getGroupTags(managedGroup || { category: '', tags: [] } as Group),
+        groupColor: editingGroupColor || undefined,
+        showAlert: false,
+        existingTitles: [editingGroupName.trim(), managedGroup?.name].filter(Boolean) as string[]
+      });
+    }
     setManageGroupId(null);
   };
 
@@ -684,7 +765,8 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       day_of_week: getDayOfWeek(newGroupStartDate),
       start_date: newGroupStartDate,
       end_date: newGroupEndDate || undefined,
-      time: newGroupStartTime || undefined
+      time: newGroupStartTime || undefined,
+      end_time: newGroupEndTime || undefined
     } : undefined;
     
     const selectedTags = Array.from(selectedGroupTags).filter(tag => tag !== 'Alle');
@@ -697,6 +779,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       category: newGroupCategory,
       description: newGroupDescription.trim() || undefined,
       link: newGroupLink.trim() || undefined,
+      color: newGroupColor || undefined,
       gathering_pattern: gatheringPattern,
       tags: customTags.length > 0 ? customTags : undefined
     };
@@ -747,12 +830,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         }
       });
       
-      return {
-        ...prev,
-        groups: [...prev.groups, newGroup],
+      const nextState = { 
+        ...prev, 
+        groups: [...prev.groups, newGroup], 
         groupMembers: [...prev.groupMembers, ...newGroupMembers],
-        noticeMessages: [...newNotices, ...prev.noticeMessages]
+        noticeMessages: [...newNotices, ...prev.noticeMessages] 
       };
+
+      if (gatheringPattern && newGroupName.trim()) {
+        const newOccurrences = buildGroupOccurrences(
+          gatheringPattern,
+          newGroupName.trim(),
+          prev.eventOccurrences,
+          [newGroupName.trim()],
+          getGroupTags(newGroup),
+          newGroup.color
+        );
+        if (newOccurrences.length > 0) {
+          nextState.eventOccurrences = [...prev.eventOccurrences, ...newOccurrences];
+        }
+      }
+
+      return nextState;
     });
 
     setActiveTab('groups');
@@ -768,6 +867,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     setNewGroupDayOfWeek(0);
     setNewGroupFrequency(1);
     setNewGroupStartDate(new Date().toISOString().split('T')[0]);
+    setNewGroupStartTime('');
+    setNewGroupEndTime('');
+    setNewGroupEndDate('');
+    setNewGroupColor('#2563eb');
     setNewGroupCategory('');
     setIsCreateModalOpen(false);
   };
@@ -3883,6 +3986,26 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     placeholder="https://..."
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Farge</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={newGroupColor}
+                      onChange={(e) => setNewGroupColor(e.target.value)}
+                      className="h-10 w-14 border border-slate-200 rounded-theme"
+                      aria-label="Velg farge"
+                    />
+                    <input
+                      type="text"
+                      value={newGroupColor}
+                      onChange={(e) => setNewGroupColor(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none"
+                      placeholder="#2563eb"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Planlegging */}
@@ -3930,6 +4053,15 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       type="time"
                       value={newGroupStartTime}
                       onChange={(e) => setNewGroupStartTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Sluttid</label>
+                    <input
+                      type="time"
+                      value={newGroupEndTime}
+                      onChange={(e) => setNewGroupEndTime(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none"
                     />
                   </div>
@@ -4112,6 +4244,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                       <p>Frekvens: {viewedGroup.gathering_pattern.interval === 1 ? '1 gang pr uke' : `${viewedGroup.gathering_pattern.interval} uker`}</p>
                       <p>Startdato: {new Date(viewedGroup.gathering_pattern.start_date).toLocaleDateString('no-NO')}</p>
                       {viewedGroup.gathering_pattern.time && <p>Klokkeslett: {viewedGroup.gathering_pattern.time}</p>}
+                      {viewedGroup.gathering_pattern.end_time && <p>Sluttid: {viewedGroup.gathering_pattern.end_time}</p>}
                       {viewedGroup.gathering_pattern.end_date && (
                         <p>Sluttdato: {new Date(viewedGroup.gathering_pattern.end_date).toLocaleDateString('no-NO')}</p>
                       )}
@@ -4332,8 +4465,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                   />
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Farge</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={editingGroupColor}
+                      onChange={(e) => setEditingGroupColor(e.target.value)}
+                      className="h-10 w-14 border border-slate-200 rounded-theme"
+                      aria-label="Velg farge"
+                    />
+                    <input
+                      type="text"
+                      value={editingGroupColor}
+                      onChange={(e) => setEditingGroupColor(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
+                      placeholder="#2563eb"
+                    />
+                  </div>
+                </div>
+
                 {/* Samlingsplanlegging - Expandable */}
-                <div className="border border-slate-200 rounded-theme overflow-hidden">
+                <div ref={gatheringSectionRef} className="border border-slate-200 rounded-theme overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setIsGatheringPatternExpanded(!isGatheringPatternExpanded)}
@@ -4391,14 +4544,25 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Klokkeslett</label>
-                        <input
-                          type="time"
-                          value={tempPattern.time || ''}
-                          onChange={(e) => handleUpdateGatheringPattern({ time: e.target.value || undefined })}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Klokkeslett</label>
+                          <input
+                            type="time"
+                            value={tempPattern.time || ''}
+                            onChange={(e) => handleUpdateGatheringPattern({ time: e.target.value || undefined })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Sluttid</label>
+                          <input
+                            type="time"
+                            value={tempPattern.end_time || ''}
+                            onChange={(e) => handleUpdateGatheringPattern({ end_time: e.target.value || undefined })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

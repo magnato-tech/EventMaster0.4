@@ -1,4 +1,4 @@
-import { AppState, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task, EventOccurrence, OccurrenceStatus, Assignment, ProgramItem } from '../types';
+import { AppState, Group, GroupCategory, GroupRole, CoreRole, Person, Family, FamilyMember, FamilyRole, ServiceRole, GroupMember, GroupServiceRole, UUID, Task, EventOccurrence, OccurrenceStatus, Assignment, ProgramItem, Room } from '../types';
 import { DEFAULT_EVENT_TEMPLATES } from './seedEventTemplates';
 
 // Hjelpefunksjon for å generere tilfeldig fødselsdato i et gitt år
@@ -56,6 +56,20 @@ const formatDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getNextWeekdayDate = (targetDay: number, weeksAhead = 0): string => {
+  const date = new Date();
+  const currentDay = date.getDay();
+  let diff = (targetDay - currentDay + 7) % 7;
+  if (diff === 0) diff = 7;
+  date.setDate(date.getDate() + diff + (weeksAhead * 7));
+  return formatDate(date);
+};
+
 const generateSundayOccurrences = (templateId: string, monthsAhead = 2): EventOccurrence[] => {
   const occurrences: EventOccurrence[] = [];
   const start = new Date();
@@ -78,6 +92,48 @@ const generateSundayOccurrences = (templateId: string, monthsAhead = 2): EventOc
     });
     current.setDate(current.getDate() + 7);
   }
+
+  return occurrences;
+};
+
+const getGroupTags = (group: Group): string[] => {
+  const standardTag = getCategoryTagLabel(group.category);
+  const customTags = group.tags || [];
+  return Array.from(new Set([standardTag, ...customTags].filter(Boolean)));
+};
+
+const generateGroupOccurrences = (groups: Group[], monthsAhead = 3): EventOccurrence[] => {
+  const occurrences: EventOccurrence[] = [];
+  const end = new Date();
+  end.setMonth(end.getMonth() + monthsAhead);
+  let counter = 1;
+
+  groups.forEach(group => {
+    const pattern = group.gathering_pattern;
+    if (!pattern) return;
+    let current = parseLocalDate(pattern.start_date);
+    const hardEnd = pattern.end_date ? parseLocalDate(pattern.end_date) : end;
+
+    while (current <= hardEnd) {
+      occurrences.push({
+        id: `gocc${counter++}`,
+        template_id: null,
+        date: formatDate(current),
+        time: pattern.time || undefined,
+        end_time: pattern.end_time || undefined,
+        title_override: group.name,
+        tags: getGroupTags(group),
+        color: group.color,
+        status: OccurrenceStatus.DRAFT
+      });
+
+      if (pattern.frequency_type === 'weeks') {
+        current.setDate(current.getDate() + (pattern.interval * 7));
+      } else {
+        current.setMonth(current.getMonth() + pattern.interval);
+      }
+    }
+  });
 
   return occurrences;
 };
@@ -347,13 +403,118 @@ const perPastor: Person = {
 
 export const INITIAL_DATA: AppState = {
   persons: [...generatedPersons, perPastor],
+  rooms: [
+    { id: 'r1', name: 'Storsalen', capacity: 250 },
+    { id: 'r2', name: 'Lillesalen', capacity: 120 },
+    { id: 'r3', name: 'Møterom', capacity: 20 }
+  ],
   groups: [
-    { id: 'g1', name: 'Lovsangsteam', category: GroupCategory.SERVICE, leaderId: 'p5', tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
-    { id: 'g2', name: 'Teknikkteam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
-    { id: 'g3', name: 'Vertskapsteam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
-    { id: 'g4', name: 'Lederskap', category: GroupCategory.STRATEGY, tags: [getCategoryTagLabel(GroupCategory.STRATEGY)] },
-    { id: 'g5', name: 'Barnekirketeam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
-    { id: 'g6', name: 'Markedsføring', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
+    { 
+      id: 'g1', 
+      name: 'Lovsangsteam', 
+      category: GroupCategory.SERVICE, 
+      leaderId: 'p5', 
+      color: '#8b5cf6',
+      tags: [getCategoryTagLabel(GroupCategory.SERVICE)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 4,
+        start_date: getNextWeekdayDate(4),
+        time: '19:30',
+        end_time: '21:30'
+      }
+    },
+    { 
+      id: 'g2', 
+      name: 'Teknikkteam', 
+      category: GroupCategory.SERVICE, 
+      color: '#2563eb',
+      tags: [getCategoryTagLabel(GroupCategory.SERVICE)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 3,
+        start_date: getNextWeekdayDate(3),
+        time: '18:30',
+        end_time: '20:00'
+      }
+    },
+    { 
+      id: 'g3', 
+      name: 'Vertskapsteam', 
+      category: GroupCategory.SERVICE, 
+      color: '#10b981',
+      tags: [getCategoryTagLabel(GroupCategory.SERVICE)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 1,
+        start_date: getNextWeekdayDate(1),
+        time: '19:00',
+        end_time: '20:30'
+      }
+    },
+    { 
+      id: 'g4', 
+      name: 'Lederskap', 
+      category: GroupCategory.STRATEGY, 
+      color: '#f59e0b',
+      tags: [getCategoryTagLabel(GroupCategory.STRATEGY)],
+      gathering_pattern: {
+        frequency_type: 'months',
+        interval: 1,
+        day_of_week: 1,
+        start_date: getNextWeekdayDate(1),
+        time: '18:00',
+        end_time: '20:00'
+      }
+    },
+    { 
+      id: 'g5', 
+      name: 'Barnekirketeam', 
+      category: GroupCategory.SERVICE, 
+      color: '#ec4899',
+      tags: [getCategoryTagLabel(GroupCategory.SERVICE), 'Barnekirke'],
+      gathering_pattern: {
+        frequency_type: 'months',
+        interval: 1,
+        day_of_week: 6,
+        start_date: getNextWeekdayDate(6),
+        time: '10:00',
+        end_time: '12:00'
+      }
+    },
+    { 
+      id: 'g6', 
+      name: 'Markedsføring', 
+      category: GroupCategory.SERVICE, 
+      color: '#14b8a6',
+      tags: [getCategoryTagLabel(GroupCategory.SERVICE)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 2,
+        start_date: getNextWeekdayDate(2),
+        time: '19:00',
+        end_time: '20:30'
+      }
+    },
+    { 
+      id: 'g7', 
+      name: 'Husgruppe Sentrum', 
+      category: GroupCategory.FELLOWSHIP, 
+      color: '#6366f1',
+      tags: [getCategoryTagLabel(GroupCategory.FELLOWSHIP)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 2,
+        start_date: getNextWeekdayDate(2),
+        time: '19:00',
+        end_time: '21:00'
+      }
+    },
   ],
   groupTags: [],
   groupMembers: [
@@ -928,13 +1089,22 @@ const addDemoGroups = (baseData: AppState): AppState => {
     });
   });
 
-  const createHusgruppe = (name: string, firstNames: string[], offset: number) => {
+  const createHusgruppe = (name: string, firstNames: string[], offset: number, color: string) => {
     const groupId = `g${nextGroupId++}`;
     groups.push({
       id: groupId,
       name,
       category: GroupCategory.FELLOWSHIP,
-      tags: [getCategoryTagLabel(GroupCategory.FELLOWSHIP)]
+      color,
+      tags: [getCategoryTagLabel(GroupCategory.FELLOWSHIP)],
+      gathering_pattern: {
+        frequency_type: 'weeks',
+        interval: 2,
+        day_of_week: 2,
+        start_date: getNextWeekdayDate(2),
+        time: '19:00',
+        end_time: '21:00'
+      }
     });
     for (let i = 0; i < 6; i += 1) {
       const firstName = firstNames[(offset + i) % firstNames.length];
@@ -952,10 +1122,10 @@ const addDemoGroups = (baseData: AppState): AppState => {
   };
 
   // Husgrupper: 2 mannsgrupper og 2 kvinnegrupper med 6 medlemmer
-  createHusgruppe('Husgruppe Menn 1', MALE_NAMES, 0);
-  createHusgruppe('Husgruppe Menn 2', MALE_NAMES, 6);
-  createHusgruppe('Husgruppe Kvinner 1', FEMALE_NAMES, 0);
-  createHusgruppe('Husgruppe Kvinner 2', FEMALE_NAMES, 6);
+  createHusgruppe('Husgruppe Menn 1', MALE_NAMES, 0, '#6366f1');
+  createHusgruppe('Husgruppe Menn 2', MALE_NAMES, 6, '#3b82f6');
+  createHusgruppe('Husgruppe Kvinner 1', FEMALE_NAMES, 0, '#10b981');
+  createHusgruppe('Husgruppe Kvinner 2', FEMALE_NAMES, 6, '#f59e0b');
 
   const ensureGroupLeaderAndDeputy = (group: Group) => {
     const members = groupMembers.filter(gm => gm.group_id === group.id);
@@ -1214,6 +1384,7 @@ const generateYearlyWheelTasks = (year: number): Task[] => {
 const populatedWithFamilies = populateFamilyData(INITIAL_DATA);
 const populatedWithDemoGroups = addDemoGroups(populatedWithFamilies);
 const defaultSundayOccurrences = generateSundayOccurrences('t1', 2);
+const demoGroupOccurrences = generateGroupOccurrences(populatedWithDemoGroups.groups, 3);
 const occurrenceCopies = buildOccurrenceCopies(populatedWithDemoGroups, defaultSundayOccurrences);
 
 // Legg til årshjul-tasks for inneværende år
@@ -1222,6 +1393,7 @@ export const POPULATED_DATA: AppState = {
   ...populatedWithDemoGroups,
   eventOccurrences: [
     ...populatedWithDemoGroups.eventOccurrences,
+    ...demoGroupOccurrences,
     ...defaultSundayOccurrences
   ],
   assignments: [

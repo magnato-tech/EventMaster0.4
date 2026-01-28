@@ -20,7 +20,16 @@ const formatLocalDate = (date: Date): string => {
 interface Props {
   db: AppState;
   setDb: React.Dispatch<React.SetStateAction<AppState>>;
-  onCreateRecurring: (templateId: string, startDate: string, count: number, intervalDays: number) => void;
+  onCreateRecurring: (
+    templateId: string,
+    startDate: string,
+    endDate: string,
+    frequencyType: 'weekly' | 'monthly',
+    interval: number,
+    time?: string,
+    endTime?: string,
+    roomId?: string
+  ) => void;
   onUpdateOccurrence: (occurrenceId: string, updates: Partial<EventOccurrence>) => void;
   onAddProgramItem: (item: ProgramItem) => void;
   onUpdateProgramItem?: (id: string, updates: Partial<ProgramItem>) => void;
@@ -378,7 +387,9 @@ const MasterMenu: React.FC<Props> = ({ db, setDb, onCreateRecurring, onUpdateOcc
       recEndDate,
       frequencyType,
       interval,
-      recStartTime || undefined
+      recStartTime || undefined,
+      undefined,
+      undefined
     );
     
     setIsRecurringModalOpen(false);

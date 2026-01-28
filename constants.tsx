@@ -8,6 +8,8 @@ export const EMPTY_DATA: AppState = {
   groupMembers: [],
   serviceRoles: [],
   groupServiceRoles: [],
+  rooms: [],
+  roomConflictCheckEnabled: false,
   eventTemplates: [],
   eventOccurrences: [],
   assignments: [],

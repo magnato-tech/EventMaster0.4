@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { AppState, Family, FamilyMember, FamilyRole, Group, GroupCategory, GroupMember, GroupRole, GroupServiceRole, Person, ServiceRole } from '../types';
-import { CloudDownload, Database, Download, FileDown, DownloadCloud, RotateCcw, Palette, Sliders, Check } from 'lucide-react';
+import { AppState, Family, FamilyMember, FamilyRole, Group, GroupCategory, GroupMember, GroupRole, GroupServiceRole, Person, ServiceRole, Room } from '../types';
+import { CloudDownload, Database, Download, FileDown, DownloadCloud, RotateCcw, Palette, Sliders, Check, Home, Trash2 } from 'lucide-react';
 import { EMPTY_DATA } from '../constants';
 import { DEMO_MAX_PEOPLE, generatePersons, POPULATED_DATA } from '../scripts/seedData';
 import { supabase, supabaseTables } from '../lib/supabaseClient';
@@ -8,6 +8,8 @@ import { supabase, supabaseTables } from '../lib/supabaseClient';
 type SyncMode = 'supabase' | 'local';
 
 interface SettingsTabProps {
+  db: AppState;
+  setDb: React.Dispatch<React.SetStateAction<AppState>>;
   onLoadBackup: (state: AppState) => void;
   syncMode: SyncMode;
   onSyncModeChange: (mode: SyncMode) => void;
@@ -24,6 +26,8 @@ const normalizeBackup = (payload: Partial<AppState>): AppState => ({
   groupMembers: Array.isArray(payload.groupMembers) ? payload.groupMembers : [],
   serviceRoles: Array.isArray(payload.serviceRoles) ? payload.serviceRoles : [],
   groupServiceRoles: Array.isArray(payload.groupServiceRoles) ? payload.groupServiceRoles : [],
+  rooms: Array.isArray(payload.rooms) ? payload.rooms : [],
+  roomConflictCheckEnabled: typeof payload.roomConflictCheckEnabled === 'boolean' ? payload.roomConflictCheckEnabled : false,
   eventTemplates: Array.isArray(payload.eventTemplates) ? payload.eventTemplates : [],
   eventOccurrences: Array.isArray(payload.eventOccurrences) ? payload.eventOccurrences : [],
   assignments: Array.isArray(payload.assignments) ? payload.assignments : [],
@@ -36,8 +40,8 @@ const normalizeBackup = (payload: Partial<AppState>): AppState => ({
   familyMembers: Array.isArray(payload.familyMembers) ? payload.familyMembers : []
 });
 
-const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyncModeChange }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'data' | 'appearance'>('data');
+const SettingsTab: React.FC<SettingsTabProps> = ({ db, setDb, onLoadBackup, syncMode, onSyncModeChange }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'data' | 'appearance' | 'rooms'>('data');
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState<string>('');
   const [report, setReport] = useState<string>('');
@@ -48,6 +52,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
   const [customFamilyCount, setCustomFamilyCount] = useState<number>(Math.min(POPULATED_DATA.families.length || 12, 12));
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [isGroupsModalOpen, setIsGroupsModalOpen] = useState<boolean>(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomCapacity, setNewRoomCapacity] = useState<number>(40);
 
   // Tema-styring
   const [theme, setTheme] = useState({
@@ -187,6 +193,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
       `Personer: ${state.persons.length}`,
       `Grupper: ${state.groups.length}`,
       `Familier: ${state.families.length}`,
+      `Rom: ${state.rooms.length}`,
       `Arrangementer: ${state.eventOccurrences.length}`,
       `Oppgaver: ${state.tasks.length}`,
       `Ugyldige gruppemedlemskap: ${invalidGroupMembers.length}`,
@@ -203,6 +210,40 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
     setReport(summary);
     setStatus('success');
     setMessage('Datasjekk fullfort.');
+  };
+
+  const handleAddRoom = () => {
+    const name = newRoomName.trim();
+    if (!name) return;
+    const capacity = Number.isFinite(newRoomCapacity) ? Math.max(0, newRoomCapacity) : undefined;
+    setDb(prev => ({
+      ...prev,
+      rooms: [
+        ...prev.rooms,
+        {
+          id: crypto.randomUUID(),
+          name,
+          capacity
+        }
+      ]
+    }));
+    setNewRoomName('');
+    setNewRoomCapacity(40);
+  };
+
+  const handleUpdateRoom = (roomId: string, updates: Partial<Room>) => {
+    setDb(prev => ({
+      ...prev,
+      rooms: prev.rooms.map(room => room.id === roomId ? { ...room, ...updates } : room)
+    }));
+  };
+
+  const handleDeleteRoom = (roomId: string) => {
+    if (!confirm('Slette dette rommet?')) return;
+    setDb(prev => ({
+      ...prev,
+      rooms: prev.rooms.filter(room => room.id !== roomId)
+    }));
   };
 
   const handleClearImageCache = () => {
@@ -742,6 +783,16 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
         >
           Design & Utseende
         </button>
+        <button
+          onClick={() => setActiveSubTab('rooms')}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeSubTab === 'rooms'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Rom
+        </button>
       </div>
 
       {activeSubTab === 'data' ? (
@@ -886,7 +937,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
             </div>
           </section>
         </div>
-      ) : (
+      ) : activeSubTab === 'appearance' ? (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-6">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
@@ -1041,6 +1092,103 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ onLoadBackup, syncMode, onSyn
             <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-theme bg-slate-50">
               <p className="text-sm text-slate-500 italic">Flere visningsvalg kommer snart...</p>
             </div>
+          </section>
+        </div>
+      ) : (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <section className="bg-white border border-gray-200 rounded-theme p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Home size={16} className="text-primary" />
+                Rom
+              </h3>
+              <p className="text-xs text-slate-500">
+                Opprett og vedlikehold rom som kan brukes på arrangementer.
+              </p>
+            </div>
+
+            <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(db.roomConflictCheckEnabled)}
+                onChange={(e) => setDb(prev => ({ ...prev, roomConflictCheckEnabled: e.target.checked }))}
+                className="sr-only"
+              />
+              <div className={`w-12 h-6 rounded-full transition-colors relative ${db.roomConflictCheckEnabled ? 'bg-primary' : 'bg-slate-300'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${db.roomConflictCheckEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </div>
+              <div className="text-xs font-semibold text-slate-700">
+                Aktiver konfliktsjekk for rom
+              </div>
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="text-xs text-slate-600 sm:col-span-2">
+                Navn på rom
+                <input
+                  type="text"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-900"
+                  placeholder="f.eks. Storsalen"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                Ca. sitteplasser
+                <input
+                  type="number"
+                  min={0}
+                  value={newRoomCapacity}
+                  onChange={(e) => setNewRoomCapacity(Number(e.target.value))}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-900"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={handleAddRoom}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-theme font-medium hover:bg-primary-hover transition-colors"
+              >
+                Legg til rom
+              </button>
+            </div>
+
+            {db.rooms.length === 0 ? (
+              <div className="text-center text-xs text-slate-500 py-6 border border-dashed border-slate-200 rounded-theme">
+                Ingen rom registrert ennå.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {db.rooms.map(room => (
+                  <div key={room.id} className="flex flex-col sm:flex-row sm:items-center gap-3 border border-slate-200 rounded-theme p-3">
+                    <input
+                      type="text"
+                      value={room.name}
+                      onChange={(e) => handleUpdateRoom(room.id, { name: e.target.value })}
+                      className="flex-1 rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-900"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={room.capacity ?? 0}
+                      onChange={(e) => handleUpdateRoom(room.id, { capacity: Number(e.target.value) })}
+                      className="w-full sm:w-32 rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRoom(room.id)}
+                      className="inline-flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-theme border border-rose-200 text-rose-700 hover:bg-rose-50"
+                      title="Slett rom"
+                    >
+                      <Trash2 size={14} />
+                      Slett
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       )}

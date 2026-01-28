@@ -386,7 +386,9 @@ const App: React.FC = () => {
     return undefined;
   };
 
-  const handleCreateOccurrence = (templateId: string, date: string, time?: string) => {
+  const MASTER_TEMPLATE_TAG = 'Master';
+
+  const handleCreateOccurrence = (templateId: string, date: string, time?: string, roomId?: string, endTime?: string) => {
     const newId = crypto.randomUUID();
     const template = db.eventTemplates.find(t => t.id === templateId);
     const newOccurrence: EventOccurrence = {
@@ -394,7 +396,10 @@ const App: React.FC = () => {
       template_id: templateId,
       date,
       time: normalizeTime(time),
+      end_time: normalizeTime(endTime),
+      room_id: roomId || undefined,
       status: OccurrenceStatus.DRAFT,
+      tags: [MASTER_TEMPLATE_TAG],
       color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
     };
     
@@ -413,7 +418,12 @@ const App: React.FC = () => {
       ...prev,
       eventOccurrences: prev.eventOccurrences.map(occ => 
         occ.id === occurrenceId
-          ? { ...occ, ...updates, time: normalizeTime(updates.time ?? occ.time) }
+          ? { 
+              ...occ, 
+              ...updates, 
+              time: normalizeTime(updates.time ?? occ.time),
+              end_time: normalizeTime(updates.end_time ?? occ.end_time)
+            }
           : occ
       )
     }));
@@ -447,7 +457,9 @@ const App: React.FC = () => {
     endDate: string,
     frequencyType: 'weekly' | 'monthly',
     interval: number,
-    time?: string
+    time?: string,
+    endTime?: string,
+    roomId?: string
   ) => {
     let nextDb = { ...db };
     
@@ -526,6 +538,7 @@ const App: React.FC = () => {
     }
     
     const normalizedTime = normalizeTime(time);
+    const normalizedEndTime = normalizeTime(endTime);
     // Create occurrences
     const template = db.eventTemplates.find(t => t.id === templateId);
     occurrences.forEach(({ date }) => {
@@ -539,7 +552,10 @@ const App: React.FC = () => {
           template_id: templateId,
           date: dateStr,
           time: normalizedTime,
+          end_time: normalizedEndTime,
+          room_id: roomId || undefined,
           status: OccurrenceStatus.DRAFT,
+          tags: [MASTER_TEMPLATE_TAG],
           color: template?.color || '#2563eb' // Arv farge fra template, eller standard blå
         };
         
@@ -833,6 +849,8 @@ const App: React.FC = () => {
         )}
         {activeTab === 'settings' && currentUser.is_admin && (
           <SettingsTab
+            db={db}
+            setDb={setDb}
             onLoadBackup={handleLoadBackup}
             syncMode={syncMode}
             onSyncModeChange={(mode) => {
