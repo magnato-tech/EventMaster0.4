@@ -4,6 +4,7 @@ import { AppState } from './types';
 export const EMPTY_DATA: AppState = {
   persons: [],
   groups: [],
+  groupTags: [],
   groupMembers: [],
   serviceRoles: [],
   groupServiceRoles: [],

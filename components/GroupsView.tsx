@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { AppState, Group, GroupCategory, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
+import { AppState, Group, GroupCategory, GroupCategoryValue, GroupRole, GroupMember, ServiceRole, UUID, Person, CoreRole, GatheringPattern, OccurrenceStatus, EventOccurrence, Assignment, Family, FamilyMember, FamilyRole } from '../types';
 import { saveImageLibraryEntry, removeImageLibraryEntry } from '../db';
-import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby, Filter, LayoutGrid, Table } from 'lucide-react';
+import { Users, Shield, Heart, Plus, X, Search, Edit2, Star, Library, ChevronDown, Calendar, Repeat, ShieldCheck, Link as LinkIcon, ExternalLink, ListChecks, Mail, Phone, ArrowLeft, Clock, CheckCircle2, ChevronRight, User, Trash2, FileText, Info, UserPlus, MapPin, Home, Save, Baby, Filter, LayoutGrid, Table, Tag } from 'lucide-react';
 
 interface Props {
   db: AppState;
@@ -19,14 +19,6 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [activeTab, setActiveTab] = useState<'persons' | 'groups' | 'roles'>('persons');
   const [selectedGroupTags, setSelectedGroupTags] = useState<Set<string>>(new Set(['Alle']));
   const [groupViewMode, setGroupViewMode] = useState<'tiles' | 'table'>('tiles');
-  const [customGroupTags, setCustomGroupTags] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('eventmaster.customGroupTags');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
   const [isAddingCustomTag, setIsAddingCustomTag] = useState(false);
   const [newCustomTag, setNewCustomTag] = useState('');
   const [viewingFamilyFromPerson, setViewingFamilyFromPerson] = useState<UUID | null>(null);
@@ -76,7 +68,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
 
   // Form States
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupCategory, setNewGroupCategory] = useState<GroupCategory | ''>('');
+  const [newGroupCategory, setNewGroupCategory] = useState<GroupCategoryValue | ''>('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupLink, setNewGroupLink] = useState('');
   const [newGroupLeaderId, setNewGroupLeaderId] = useState<UUID | null>(null);
@@ -92,6 +84,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   
   // Redigeringsstates for gruppe
   const [editingGroupName, setEditingGroupName] = useState('');
+  const [editingGroupCategory, setEditingGroupCategory] = useState<GroupCategoryValue>(GroupCategory.SERVICE);
   const [editingGroupDescription, setEditingGroupDescription] = useState('');
   const [editingGroupLink, setEditingGroupLink] = useState('');
   const [isGatheringPatternExpanded, setIsGatheringPatternExpanded] = useState(false);
@@ -118,14 +111,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const [columnGroups, setColumnGroups] = useState<Set<string>>(new Set());
 
   // Helper: Get standard tag from category
-  const getCategoryTag = (category: GroupCategory): string => {
-    switch (category) {
-      case GroupCategory.BARNKIRKE: return 'Barnekirke';
-      case GroupCategory.FELLOWSHIP: return 'Husgrupper';
-      case GroupCategory.SERVICE: return 'Teams';
-      case GroupCategory.STRATEGY: return 'Ledelse';
-      default: return '';
+  const standardCategoryLabels: Record<GroupCategory, string> = {
+    [GroupCategory.BARNKIRKE]: 'Barnekirke',
+    [GroupCategory.FELLOWSHIP]: 'Husgrupper',
+    [GroupCategory.SERVICE]: 'Teams',
+    [GroupCategory.STRATEGY]: 'Ledelse'
+  };
+  const orderedStandardCategories: GroupCategory[] = [
+    GroupCategory.BARNKIRKE,
+    GroupCategory.FELLOWSHIP,
+    GroupCategory.SERVICE,
+    GroupCategory.STRATEGY
+  ];
+
+  const isStandardCategoryValue = (value: string): value is GroupCategory => (
+    Object.values(GroupCategory).includes(value as GroupCategory)
+  );
+
+  const getCategoryTag = (category: GroupCategoryValue): string => {
+    if (isStandardCategoryValue(category)) {
+      return standardCategoryLabels[category];
     }
+    return category || '';
   };
 
   const getCategoryFromTag = (tag: string): GroupCategory | null => {
@@ -142,8 +149,11 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const getGroupTags = (group: Group): string[] => {
     const standardTag = getCategoryTag(group.category);
     const customTags = group.tags || [];
-    return [standardTag, ...customTags].filter(Boolean);
+    const tagSet = new Set([standardTag, ...customTags].filter(Boolean));
+    return Array.from(tagSet);
   };
+
+  const customGroupTags = db.groupTags || [];
 
   // Get all unique tags across all groups
   const allGroupTags = useMemo(() => {
@@ -172,16 +182,8 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
   const getDefaultNewGroupCategory = () => {
     const selectedTags = Array.from(selectedGroupTags).filter(tag => tag !== 'Alle');
     if (selectedTags.length !== 1) return '';
-    return getCategoryFromTag(selectedTags[0]) || '';
+    return getCategoryFromTag(selectedTags[0]) || selectedTags[0];
   };
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('eventmaster.customGroupTags', JSON.stringify(customGroupTags));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [customGroupTags]);
 
   const handleAddCustomTag = () => {
     const trimmed = newCustomTag.trim();
@@ -195,10 +197,31 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       alert('Denne kategorien finnes allerede.');
       return;
     }
-    setCustomGroupTags(prev => [...prev, trimmed]);
+    setDb(prev => ({
+      ...prev,
+      groupTags: [...(prev.groupTags || []), trimmed]
+    }));
     setSelectedGroupTags(new Set([trimmed]));
     setNewCustomTag('');
     setIsAddingCustomTag(false);
+  };
+
+  const handleDeleteCustomTag = (tag: string) => {
+    const usedByGroups = db.groups.some(group => (group.tags || []).includes(tag));
+    if (usedByGroups) {
+      alert('Denne kategorien er i bruk. Slett grupper som bruker kategorien før du fjerner den.');
+      return;
+    }
+    setDb(prev => ({
+      ...prev,
+      groupTags: (prev.groupTags || []).filter(t => t !== tag)
+    }));
+    if (selectedGroupTags.has(tag)) {
+      const next = new Set(selectedGroupTags);
+      next.delete(tag);
+      if (next.size === 0) next.add('Alle');
+      setSelectedGroupTags(next);
+    }
   };
 
   const filteredGroups = useMemo(() => {
@@ -321,6 +344,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       const group = db.groups.find(g => g.id === manageGroupId);
       if (group) {
         setEditingGroupName(group.name);
+        setEditingGroupCategory(group.category);
         setEditingGroupDescription(group.description || '');
         setEditingGroupLink(group.link || '');
         if (group.gathering_pattern) {
@@ -341,6 +365,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
       }
     } else {
       setEditingGroupName('');
+      setEditingGroupCategory(GroupCategory.SERVICE);
       setEditingGroupDescription('');
       setEditingGroupLink('');
       setTempPattern(null);
@@ -426,12 +451,13 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     return { memberships, upcomingAssignments: allUpcomingEntries };
   }, [selectedPersonId, db]);
 
-  const getIcon = (cat: GroupCategory) => {
+  const getIcon = (cat: GroupCategoryValue) => {
     switch (cat) {
       case GroupCategory.BARNKIRKE: return <Baby className="text-slate-500" size={18} />;
       case GroupCategory.SERVICE: return <Shield className="text-slate-500" size={18} />;
       case GroupCategory.FELLOWSHIP: return <Heart className="text-slate-500" size={18} />;
       case GroupCategory.STRATEGY: return <Users className="text-slate-500" size={18} />;
+      default: return <Tag className="text-slate-500" size={18} />;
     }
   };
 
@@ -633,6 +659,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     
     const updates: Partial<Group> = {
       name: editingGroupName.trim(),
+      category: editingGroupCategory,
       description: editingGroupDescription.trim() || undefined,
       link: editingGroupLink.trim() || undefined,
       gathering_pattern: tempPattern || undefined
@@ -661,13 +688,13 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
     } : undefined;
     
     const selectedTags = Array.from(selectedGroupTags).filter(tag => tag !== 'Alle');
-    const categoryTag = getCategoryTag(newGroupCategory as GroupCategory);
+    const categoryTag = getCategoryTag(newGroupCategory);
     const customTags = selectedTags.filter(tag => tag !== categoryTag);
 
     const newGroup: Group = {
       id: newGroupId,
       name: newGroupName.trim(),
-      category: newGroupCategory as GroupCategory,
+      category: newGroupCategory,
       description: newGroupDescription.trim() || undefined,
       link: newGroupLink.trim() || undefined,
       gathering_pattern: gatheringPattern,
@@ -727,6 +754,9 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
         noticeMessages: [...newNotices, ...prev.noticeMessages]
       };
     });
+
+    setActiveTab('groups');
+    setSelectedGroupTags(new Set([categoryTag]));
     
     // Reset form
     setNewGroupName('');
@@ -2526,6 +2556,7 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
               {['Alle', ...allGroupTags].map(tag => {
                 const count = tagCounts[tag] || 0;
                 const isSelected = selectedGroupTags.has(tag);
+                const isCustomTag = customGroupTags.includes(tag);
                 return (
                   <button
                     key={tag}
@@ -2544,13 +2575,28 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         setSelectedGroupTags(newTags);
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all inline-flex items-center gap-1 ${
                       isSelected
                         ? 'bg-primary text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {tag} ({count})
+                    <span>{tag} ({count})</span>
+                    {isAdmin && isCustomTag && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Slette kategorien "${tag}"?`)) {
+                            handleDeleteCustomTag(tag);
+                          }
+                        }}
+                        className={`ml-1 rounded-full px-1 ${isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
+                        title="Slett kategori"
+                        role="button"
+                      >
+                        ×
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -2653,7 +2699,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-slate-50 border border-slate-100 rounded-theme">{getIcon(group.category)}</div>
-                        <h3 className="text-sm font-bold text-slate-900">{group.name}</h3>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">{group.name}</h3>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase">{getCategoryTag(group.category)}</p>
+                        </div>
                       </div>
                       {canManageGroup(group.id) && (
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -2745,7 +2794,10 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-slate-50 border border-slate-100 rounded-theme">{getIcon(group.category)}</div>
-                            <span className="text-sm font-bold text-slate-900">{group.name}</span>
+                            <div>
+                              <div className="text-sm font-bold text-slate-900">{group.name}</div>
+                              <div className="text-[10px] font-semibold text-slate-400 uppercase">{getCategoryTag(group.category)}</div>
+                            </div>
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -3790,15 +3842,23 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                   <label className="block text-sm font-medium text-slate-700 mb-1">Type gruppe *</label>
                   <select
                     value={newGroupCategory || ''}
-                    onChange={(e) => setNewGroupCategory(e.target.value as GroupCategory)}
+                    onChange={(e) => setNewGroupCategory(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none"
                     required
                   >
                     <option value="" disabled>Velg kategori</option>
-                    <option value={GroupCategory.BARNKIRKE}>Barnekirke</option>
-                    <option value={GroupCategory.FELLOWSHIP}>Husgruppe</option>
-                    <option value={GroupCategory.SERVICE}>Team</option>
-                    <option value={GroupCategory.STRATEGY}>Ledelse</option>
+                    {orderedStandardCategories.map(category => (
+                      <option key={category} value={category}>
+                        {standardCategoryLabels[category]}
+                      </option>
+                    ))}
+                    {customGroupTags.length > 0 && (
+                      <optgroup label="Egendefinerte">
+                        {customGroupTags.map(tag => (
+                          <option key={tag} value={tag}>{tag}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -4219,6 +4279,32 @@ const GroupsView: React.FC<Props> = ({ db, setDb, isAdmin, currentUserId, userLe
                     onChange={(e) => setEditingGroupName(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Kategori</label>
+                  <select
+                    value={editingGroupCategory}
+                    onChange={(e) => setEditingGroupCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-theme focus:ring-1 focus:ring-primary-light0 outline-none text-sm"
+                  >
+                    {orderedStandardCategories.map(category => (
+                      <option key={category} value={category}>
+                        {standardCategoryLabels[category]}
+                      </option>
+                    ))}
+                    {!isStandardCategoryValue(editingGroupCategory) &&
+                      editingGroupCategory &&
+                      !customGroupTags.includes(editingGroupCategory) && (
+                        <option value={editingGroupCategory}>{editingGroupCategory}</option>
+                      )}
+                    {customGroupTags.length > 0 && (
+                      <optgroup label="Egendefinerte">
+                        {customGroupTags.map(tag => (
+                          <option key={tag} value={tag}>{tag}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
 
                 <div>

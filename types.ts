@@ -8,6 +8,8 @@ export enum GroupCategory {
   BARNKIRKE = 'barnekirke'
 }
 
+export type GroupCategoryValue = GroupCategory | string;
+
 export enum FamilyRole {
   PARENT = 'parent',
   CHILD = 'child',
@@ -63,7 +65,7 @@ export interface Person {
 export interface Group {
   id: UUID;
   name: string;
-  category: GroupCategory;
+  category: GroupCategoryValue;
   description?: string;
   link?: string;
   parent_id?: UUID | null;
@@ -205,6 +207,7 @@ export interface FamilyMember {
 export interface AppState {
   persons: Person[];
   groups: Group[];
+  groupTags: string[];
   groupMembers: GroupMember[];
   serviceRoles: ServiceRole[];
   groupServiceRoles: GroupServiceRole[];

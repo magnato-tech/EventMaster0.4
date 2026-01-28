@@ -17,6 +17,16 @@ const generateBirthDateFromAge = (age: number): string => {
   return generateRandomBirthDate(birthYear);
 };
 
+const getCategoryTagLabel = (category: GroupCategory): string => {
+  switch (category) {
+    case GroupCategory.BARNKIRKE: return 'Barnekirke';
+    case GroupCategory.FELLOWSHIP: return 'Husgrupper';
+    case GroupCategory.SERVICE: return 'Teams';
+    case GroupCategory.STRATEGY: return 'Ledelse';
+    default: return '';
+  }
+};
+
 const getAgeFromBirthDate = (birthDate?: string): number | null => {
   if (!birthDate) return null;
   const today = new Date();
@@ -338,13 +348,14 @@ const perPastor: Person = {
 export const INITIAL_DATA: AppState = {
   persons: [...generatedPersons, perPastor],
   groups: [
-    { id: 'g1', name: 'Lovsangsteam', category: GroupCategory.SERVICE, leaderId: 'p5' },
-    { id: 'g2', name: 'Teknikkteam', category: GroupCategory.SERVICE },
-    { id: 'g3', name: 'Vertskapsteam', category: GroupCategory.SERVICE },
-    { id: 'g4', name: 'Lederskap', category: GroupCategory.STRATEGY },
-    { id: 'g5', name: 'Barnekirketeam', category: GroupCategory.SERVICE },
-    { id: 'g6', name: 'Markedsføring', category: GroupCategory.SERVICE },
+    { id: 'g1', name: 'Lovsangsteam', category: GroupCategory.SERVICE, leaderId: 'p5', tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
+    { id: 'g2', name: 'Teknikkteam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
+    { id: 'g3', name: 'Vertskapsteam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
+    { id: 'g4', name: 'Lederskap', category: GroupCategory.STRATEGY, tags: [getCategoryTagLabel(GroupCategory.STRATEGY)] },
+    { id: 'g5', name: 'Barnekirketeam', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
+    { id: 'g6', name: 'Markedsføring', category: GroupCategory.SERVICE, tags: [getCategoryTagLabel(GroupCategory.SERVICE)] },
   ],
+  groupTags: [],
   groupMembers: [
     { id: 'gm1', group_id: 'g4', person_id: 'p1', role: GroupRole.LEADER },
     { id: 'gm2', group_id: 'g1', person_id: 'p5', role: GroupRole.LEADER },
@@ -890,7 +901,12 @@ const addDemoGroups = (baseData: AppState): AppState => {
 
   // Barnekirke: gruppe "Gul" med alle barn 0-5 år
   const barneGroupId = `g${nextGroupId++}`;
-  groups.push({ id: barneGroupId, name: 'Barnekirke Gul', category: GroupCategory.BARNKIRKE });
+  groups.push({
+    id: barneGroupId,
+    name: 'Barnekirke Gul',
+    category: GroupCategory.BARNKIRKE,
+    tags: [getCategoryTagLabel(GroupCategory.BARNKIRKE)]
+  });
   let barneMembers = persons.filter(p => {
     const age = getAgeFromBirthDate(p.birth_date);
     return age !== null && age <= 5;
@@ -914,7 +930,12 @@ const addDemoGroups = (baseData: AppState): AppState => {
 
   const createHusgruppe = (name: string, firstNames: string[], offset: number) => {
     const groupId = `g${nextGroupId++}`;
-    groups.push({ id: groupId, name, category: GroupCategory.FELLOWSHIP });
+    groups.push({
+      id: groupId,
+      name,
+      category: GroupCategory.FELLOWSHIP,
+      tags: [getCategoryTagLabel(GroupCategory.FELLOWSHIP)]
+    });
     for (let i = 0; i < 6; i += 1) {
       const firstName = firstNames[(offset + i) % firstNames.length];
       const lastName = LAST_NAMES[(offset + i) % LAST_NAMES.length];
@@ -1052,7 +1073,8 @@ const addDemoGroups = (baseData: AppState): AppState => {
       name: 'Gruppelederteam',
       category: GroupCategory.STRATEGY,
       leaderId: allLeaderIds[0],
-      deputyId: allLeaderIds[1] || allLeaderIds[0]
+      deputyId: allLeaderIds[1] || allLeaderIds[0],
+      tags: [getCategoryTagLabel(GroupCategory.STRATEGY)]
     });
     allLeaderIds.forEach((personId, index) => {
       const role = index === 0 ? GroupRole.LEADER : index === 1 ? GroupRole.DEPUTY_LEADER : GroupRole.MEMBER;
@@ -1069,7 +1091,8 @@ const addDemoGroups = (baseData: AppState): AppState => {
     ...baseData,
     persons,
     groups,
-    groupMembers
+    groupMembers,
+    groupTags: baseData.groupTags || []
   };
 };
 

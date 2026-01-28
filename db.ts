@@ -133,6 +133,9 @@ export const getDB = (): AppState => {
   if (!Array.isArray(parsedData.attendanceResponses)) {
     parsedData.attendanceResponses = [];
   }
+  if (!Array.isArray((parsedData as AppState).groupTags)) {
+    (parsedData as AppState).groupTags = [];
+  }
 
   // Flett inn bilde-URLer fra bildebasen hvis de finnes
   try {
