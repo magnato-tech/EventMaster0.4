@@ -1,0 +1,5 @@
+{
+  "name": "BaderomsPlanlegger",
+  "description": "En enkel prosjektplanlegger for renovering av bad og lignende prosjekter med automatisk flytting av utgåtte oppgaver og mulighet for å forskyve hele fremdriftsplanen.",
+  "requestFramePermissions": []
+}
